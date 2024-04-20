@@ -4,8 +4,8 @@ The Hangman game is a word guessing game where one player thinks of a word and t
 
 # Game Modes:
 
-The code supports two game modes:
-1). Single-player mode, the computer randomly selects a word from predefined categories such as months, weekdays, or zodiac signs.
+The code supports two game modes: \
+1). Single-player mode, the computer randomly selects a word from predefined categories such as months, weekdays, or zodiac signs. \
 2). In two-player mode, one player inputs a word for the other player to guess.
 
 # Gameplay:
