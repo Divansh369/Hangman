@@ -6,8 +6,8 @@ using namespace std;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <conio.h>
-#include <windows.h>
+//#include <conio.h>
+//#include <windows.h>
 #include <unistd.h>
 #include<bits/stdc++.h>
 
