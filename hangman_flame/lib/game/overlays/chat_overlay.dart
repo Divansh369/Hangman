@@ -16,6 +16,7 @@ class ChatOverlay extends StatefulWidget {
 class _ChatOverlayState extends State<ChatOverlay> {
   final _gameService = GameService();
   final _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final List<RecordModel> _messages = [];
   StreamSubscription? _chatSubscription;
 
@@ -26,17 +27,29 @@ class _ChatOverlayState extends State<ChatOverlay> {
       _chatSubscription = _gameService.subscribeToChat(widget.game.currentRoomId!).listen((msg) {
         if (!mounted) return;
         setState(() => _messages.add(msg));
+        _scrollToBottom();
       });
     }
   }
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   void _send() {
-    if (_messageController.text.isEmpty) return;
-    String text = _messageController.text;
+    if (_messageController.text.trim().isEmpty) return;
+    String text = _messageController.text.trim();
     
-    // Filter out the secret word
-    if (widget.game.secretWord.isNotEmpty && text.toLowerCase().contains(widget.game.secretWord)) {
-      text = text.replaceAll(RegExp(widget.game.secretWord, caseSensitive: false), '****');
+    if (widget.game.secretWord.isNotEmpty && text.toLowerCase().contains(widget.game.secretWord.toLowerCase())) {
+      text = '*** [Blocked Word] ***';
     }
     
     _gameService.sendMessage(widget.game.currentRoomId!, text);
@@ -46,57 +59,104 @@ class _ChatOverlayState extends State<ChatOverlay> {
   @override
   void dispose() {
     _chatSubscription?.cancel();
+    _scrollController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 250,
-      color: Colors.grey.withValues(alpha: 0.1),
+      width: 300,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(left: BorderSide(color: Colors.grey[200]!)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+      ),
       child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text('LIVE CHAT', style: TextStyle(fontWeight: FontWeight.bold)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            color: Colors.blue[50],
+            child: const Row(
+              children: [
+                Icon(Icons.chat_bubble_outline, size: 20, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('GAME CHAT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.blue)),
+              ],
+            ),
           ),
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(12),
               itemCount: _messages.length,
               itemBuilder: (context, i) {
                 final msg = _messages[i];
-                final bool isMe = msg.getStringValue('user') == AuthService().currentUser?.id;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                  child: Column(
-                    crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isMe ? Colors.blue[100] : Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(msg.getStringValue('text')),
+                final userId = msg.getStringValue('user');
+                final bool isMe = userId == AuthService().currentUser?.id;
+                final bool isSystem = userId.isEmpty;
+
+                if (isSystem) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        msg.getStringValue('text'),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
                       ),
-                    ],
+                    ),
+                  );
+                }
+
+                return Align(
+                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
+                    decoration: BoxDecoration(
+                      color: isMe ? Colors.blue : Colors.grey[100],
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(12),
+                        topRight: const Radius.circular(12),
+                        bottomLeft: Radius.circular(isMe ? 12 : 0),
+                        bottomRight: Radius.circular(isMe ? 0 : 12),
+                      ),
+                    ),
+                    child: Text(
+                      msg.getStringValue('text'),
+                      style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+                    ),
                   ),
                 );
               },
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     onSubmitted: (_) => _send(),
-                    decoration: const InputDecoration(hintText: 'Type...', isDense: true),
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                    ),
                   ),
                 ),
-                IconButton(onPressed: _send, icon: const Icon(IconData(0xe571, fontFamily: 'MaterialIcons'))),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: _send,
+                  icon: const Icon(Icons.send, size: 20),
+                  style: IconButton.styleFrom(backgroundColor: Colors.blue),
+                ),
               ],
             ),
           ),

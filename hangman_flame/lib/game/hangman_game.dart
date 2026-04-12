@@ -1,5 +1,6 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pocketbase/pocketbase.dart';
 import '../data/words.dart';
 import 'components/hangman_visual.dart';
@@ -34,6 +35,17 @@ class HangmanGame extends FlameGame {
   final ValueNotifier<String?> turnNotifier = ValueNotifier<String?>(null);
   final ValueNotifier<bool> isWaitingForWordNotifier = ValueNotifier<bool>(false);
 
+  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    if (event is KeyDownEvent && !isGameOver && !isWaitingForWordNotifier.value) {
+      final String char = event.logicalKey.keyLabel.toLowerCase();
+      if (char.length == 1 && RegExp(r'[a-z]').hasMatch(char)) {
+        makeGuess(char);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
@@ -45,6 +57,8 @@ class HangmanGame extends FlameGame {
   @override
   Color backgroundColor() => Colors.white;
 
+  bool hasAwardedPoints = false;
+
   void startGame(String category, {String? customWord, bool multiplayer = false, String? roomId, bool host = false, String? hId, String? oId}) {
     isMultiplayer = multiplayer;
     currentRoomId = roomId;
@@ -53,8 +67,9 @@ class HangmanGame extends FlameGame {
     opponentId = oId;
     currentCategory = category;
     currentRound = 1;
+    hasAwardedPoints = false;
     
-    _initRound();
+    _initRound(customWord: customWord);
 
     if (isMultiplayer && isHost && roomId != null) {
       _gameService.updateRoom(roomId, {
@@ -66,14 +81,22 @@ class HangmanGame extends FlameGame {
         'round': 1,
       });
     }
+
+    overlays.remove('MainMenu');
+    overlays.remove('Lobby');
+    overlays.remove('GameOver');
+    overlays.add('GameUI');
   }
 
-  void _initRound() {
+  void _initRound({String? customWord}) {
     if (isMultiplayer) {
       secretWord = ''; 
       isWaitingForWordNotifier.value = true;
       // Round 1: Host sets word. Round 2: Opponent sets word.
       currentTurnId = (currentRound == 1) ? hostId : opponentId;
+    } else if (customWord != null) {
+      secretWord = customWord;
+      isWaitingForWordNotifier.value = false;
     } else {
       secretWord = getRandomWord(currentCategory);
       isWaitingForWordNotifier.value = false;
@@ -83,7 +106,24 @@ class HangmanGame extends FlameGame {
     wrongGuesses = 0;
     isGameOver = false;
     didWin = false;
+    hasAwardedPoints = false;
     _updateNotifiers();
+  }
+
+  void restartMultiplayer() {
+    if (!isMultiplayer || currentRoomId == null || !isHost) return;
+    
+    // Swap rounds
+    int nextRound = (currentRound == 1) ? 2 : 1;
+    
+    _gameService.updateRoom(currentRoomId!, {
+      'status': 'playing',
+      'turn': (nextRound == 1) ? hostId : opponentId,
+      'secretWord': '',
+      'guessedLetters': [],
+      'wrongGuesses': 0,
+      'round': nextRound,
+    });
   }
 
   void setMultiplayerWord(String word) {
@@ -135,18 +175,26 @@ class HangmanGame extends FlameGame {
   }
 
   void syncFromRecord(RecordModel record) {
+    if (!isMultiplayer) return;
+
+    final String status = record.getStringValue('status');
+    if (status != 'playing') return;
+
     final newSecret = record.getStringValue('secretWord');
+    final newRound = record.getIntValue('round');
+    
+    // If a new round has started (or word reset)
+    if (newRound != currentRound || (secretWord.isNotEmpty && newSecret.isEmpty)) {
+      currentRound = newRound;
+      _initRound();
+      overlays.remove('GameOver');
+    }
+
     secretWord = newSecret;
     guessedLetters = List<String>.from(record.getListValue<String>('guessedLetters'));
     currentTurnId = record.getStringValue('turn');
     hostId = record.getStringValue('host');
     opponentId = record.getStringValue('opponent');
-    int newRound = record.getIntValue('round');
-    
-    if (newRound != currentRound) {
-      currentRound = newRound;
-      // Logic for round transition could be added here
-    }
 
     isWaitingForWordNotifier.value = secretWord.isEmpty;
 
@@ -163,7 +211,7 @@ class HangmanGame extends FlameGame {
   }
 
   void _checkGameOver() {
-    if (secretWord.isEmpty) return;
+    if (secretWord.isEmpty || isGameOver) return;
     
     if (!revealedLetters.contains('')) {
       isGameOver = true;
@@ -173,13 +221,27 @@ class HangmanGame extends FlameGame {
     } else if (wrongGuesses >= maxTries) {
       isGameOver = true;
       didWin = false;
+      if (isMultiplayer) _handleMultiplayerWin();
       overlays.add('GameOver');
     }
   }
 
   void _handleMultiplayerWin() async {
+    if (hasAwardedPoints) return;
     final currentUser = AuthService().currentUser;
-    if (currentUser != null && didWin) {
+    if (currentUser == null) return;
+
+    bool shouldGetPoints = false;
+    // Guessing turn was currentTurnId
+    if (didWin && currentTurnId == currentUser.id) {
+      shouldGetPoints = true;
+    } else if (!didWin && currentTurnId != currentUser.id) {
+      // If guesser failed, the other person (setter) gets points
+      shouldGetPoints = true;
+    }
+
+    if (shouldGetPoints) {
+       hasAwardedPoints = true;
        final currentScore = currentUser.getIntValue('score');
        await AuthService().pb.collection('users').update(currentUser.id, body: {
          'score': currentScore + 10,

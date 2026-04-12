@@ -44,13 +44,16 @@ class GameOver extends StatelessWidget {
               style: const TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              onPressed: () => game.startGame(game.currentCategory),
-              child: const Text('Play Again'),
-            ),
+            if (!game.isMultiplayer || game.isHost)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                onPressed: () => game.isMultiplayer ? game.restartMultiplayer() : game.startGame(game.currentCategory),
+                child: const Text('Play Again'),
+              )
+            else
+              const Text('Waiting for host to restart...', style: TextStyle(fontStyle: FontStyle.italic)),
             const SizedBox(height: 10),
             TextButton(
               style: TextButton.styleFrom(

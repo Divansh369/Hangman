@@ -66,7 +66,7 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
         widget.game.startGame('Multiplayer', 
           roomId: roomId, 
           multiplayer: true, 
-          host: false, // You joined, you are not the host
+          host: record.getStringValue('host') == AuthService().currentUser?.id,
           hId: record.getStringValue('host'),
           oId: record.getStringValue('opponent'),
         );

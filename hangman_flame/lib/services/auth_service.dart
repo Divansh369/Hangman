@@ -14,7 +14,14 @@ class AuthService {
     final authData = prefs.getString('pb_auth');
     if (authData != null) {
       final decoded = jsonDecode(authData);
-      pb.authStore.save(decoded['token'], decoded['model']);
+      final modelData = decoded['model'];
+      if (modelData != null) {
+        // The RecordModel constructor takes a Map of data.
+        // It seems the model object in pb.authStore.model is expected to be a RecordModel.
+        // We can pass the full decoded model map as the data.
+        final record = RecordModel(Map<String, dynamic>.from(modelData));
+        pb.authStore.save(decoded['token'], record);
+      }
     }
 
     pb.authStore.onChange.listen((event) {
