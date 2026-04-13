@@ -47,6 +47,26 @@ class _GameUIState extends State<GameUI> with SingleTickerProviderStateMixin {
     _lastWrongGuesses = current;
   }
 
+  Future<void> _confirmSurrender() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('Surrender Run?'),
+        content: const Text('You will lose this round and end your current streak momentum.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dctx);
+              widget.game.surrender();
+            },
+            child: const Text('Surrender'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showPauseDialog() async {
     await showDialog<void>(
       context: context,
@@ -159,10 +179,20 @@ class _GameUIState extends State<GameUI> with SingleTickerProviderStateMixin {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    widget.game.currentCategory,
+                    widget.game.isLocalDuel
+                        ? '2P ${widget.game.duelStyle} • ${widget.game.difficulty.displayName}'
+                        : widget.game.isThemeChallenge
+                            ? '${widget.game.currentThemeNotifier.value} • ${widget.game.difficulty.displayName}'
+                            : '${widget.game.currentCategory} • ${widget.game.difficulty.displayName}',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontWeight: FontWeight.w800, color: cs.textMuted),
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed: _confirmSurrender,
+                  icon: const Icon(Icons.flag_outlined),
+                  tooltip: 'Surrender',
                 ),
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
@@ -174,10 +204,147 @@ class _GameUIState extends State<GameUI> with SingleTickerProviderStateMixin {
             ),
           ),
           const SizedBox(height: 16),
+          if (widget.game.isMultiplayer)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: cs.surface2,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cs.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.sports_esports, size: 18, color: cs.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Room ${widget.game.currentRoomId ?? '-'} • Round ${widget.game.currentRound}',
+                        style: TextStyle(fontWeight: FontWeight.w700, color: cs.textPrimary),
+                      ),
+                    ),
+                    ValueListenableBuilder<int>(
+                      valueListenable: widget.game.multiplayerTurnTimeLeftNotifier,
+                      builder: (context, turnLeft, _) {
+                        final mm = (turnLeft ~/ 60).toString().padLeft(2, '0');
+                        final ss = (turnLeft % 60).toString().padLeft(2, '0');
+                        final critical = turnLeft > 0 && turnLeft <= 8;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: critical ? cs.errorContainer : cs.surface1,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'Turn $mm:$ss',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: critical ? cs.onErrorContainer : cs.textPrimary,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (widget.game.isMultiplayer) const SizedBox(height: 10),
+          if (widget.game.isThemeChallenge)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ValueListenableBuilder<int>(
+                valueListenable: widget.game.wordProgressNotifier,
+                builder: (context, current, _) {
+                  return ValueListenableBuilder<int>(
+                    valueListenable: widget.game.totalWordsNotifier,
+                    builder: (context, total, _) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: cs.surface2,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Theme Progress',
+                                  style: TextStyle(fontWeight: FontWeight.w700, color: cs.textPrimary),
+                                ),
+                                Text(
+                                  '$current / $total words',
+                                  style: TextStyle(fontWeight: FontWeight.w700, color: cs.primary),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: total > 0 ? current / total : 0,
+                                minHeight: 8,
+                                backgroundColor: cs.surface1,
+                                valueColor: AlwaysStoppedAnimation(cs.primary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          if (widget.game.isThemeChallenge) const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
+                ValueListenableBuilder<int>(
+                  valueListenable: widget.game.wrongGuessesNotifier,
+                  builder: (context, wrong, _) {
+                    final left = widget.game.maxTries - wrong;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(color: cs.surface2, borderRadius: BorderRadius.circular(20)),
+                      child: Text('Tries: $left/${widget.game.maxTries}', style: TextStyle(color: cs.textPrimary, fontWeight: FontWeight.w700)),
+                    );
+                  },
+                ),
+                const SizedBox(width: 10),
+                ValueListenableBuilder<int>(
+                  valueListenable: widget.game.roundTimeLeftNotifier,
+                  builder: (context, secondsLeft, _) {
+                    if (secondsLeft <= 0) {
+                      return const SizedBox();
+                    }
+                    final mm = (secondsLeft ~/ 60).toString().padLeft(2, '0');
+                    final ss = (secondsLeft % 60).toString().padLeft(2, '0');
+                    final isCritical = secondsLeft <= 20;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isCritical ? cs.errorContainer : cs.surface2,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Time $mm:$ss',
+                        style: TextStyle(
+                          color: isCritical ? cs.onErrorContainer : cs.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 const Expanded(child: SizedBox()),
                 ValueListenableBuilder<int>(
                   valueListenable: widget.game.scoreNotifier,
@@ -204,7 +371,7 @@ class _GameUIState extends State<GameUI> with SingleTickerProviderStateMixin {
                                 ],
                               ),
                             ),
-                            if (lastGain > 0)
+                            if (lastGain != 0)
                               Positioned(
                                 top: -18,
                                 right: -6,
@@ -217,8 +384,14 @@ class _GameUIState extends State<GameUI> with SingleTickerProviderStateMixin {
                                     builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: cs.letterCorrect, borderRadius: BorderRadius.circular(12)),
-                                      child: Text('+$lastGain', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                      decoration: BoxDecoration(
+                                        color: lastGain > 0 ? cs.letterCorrect : cs.error,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        lastGain > 0 ? '+$lastGain' : '$lastGain',
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
                                     ),
                                   ),
                                 ),

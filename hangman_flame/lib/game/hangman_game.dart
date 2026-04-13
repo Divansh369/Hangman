@@ -8,7 +8,6 @@ import 'components/hangman_visual.dart';
 import '../services/game_service.dart';
 import '../services/auth_service.dart';
 import '../services/progress_service.dart';
-import '../data/hints.dart';
 import 'difficulty_level.dart';
 
 class HangmanGame extends FlameGame {
@@ -35,7 +34,15 @@ class HangmanGame extends FlameGame {
   String? currentLevelId;
   int minScoreForLevel = 20; // Customizable per level
   Timer? _afkTimer;
+  Timer? _roundTimer;
+  Timer? _multiplayerTurnTimer;
   bool hasForfeited = false;
+  int roundTimeLimitSeconds = 0;
+  int startingHintsPerRound = 3;
+  bool isLocalDuel = false;
+  String duelStyle = 'Classic Duel';
+  int multiplayerTurnLimitSeconds = 25;
+  int _lastRoomGuessCount = 0;
 
   // Multiplayer fields
   bool isMultiplayer = false;
@@ -47,6 +54,13 @@ class HangmanGame extends FlameGame {
   int currentRound = 1; 
   final GameService _gameService = GameService();
 
+  // Single-player multi-word progression fields
+  bool isThemeChallenge = false;
+  String? currentThemeName;
+  List<String> themeWordsToGuess = [];
+  List<String> completedWords = [];
+  int currentWordIndex = 0;
+
   final ValueNotifier<int> wrongGuessesNotifier = ValueNotifier<int>(0);
   final ValueNotifier<String> wordNotifier = ValueNotifier<String>('');
   final ValueNotifier<bool> gameOverNotifier = ValueNotifier<bool>(false);
@@ -55,8 +69,15 @@ class HangmanGame extends FlameGame {
   final ValueNotifier<String?> turnNotifier = ValueNotifier<String?>(null);
   final ValueNotifier<bool> isWaitingForWordNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<int> hintsNotifier = ValueNotifier<int>(3);
+  final ValueNotifier<int> roundTimeLeftNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> multiplayerTurnTimeLeftNotifier = ValueNotifier<int>(0);
   final ValueNotifier<String?> hintNotifier = ValueNotifier<String?>(null);
   final ValueNotifier<String?> unlockedNotifier = ValueNotifier<String?>(null);
+  // Multi-word progression notifiers
+  final ValueNotifier<int> wordProgressNotifier = ValueNotifier<int>(0); // current word index
+  final ValueNotifier<int> totalWordsNotifier = ValueNotifier<int>(0); // total words in theme
+  final ValueNotifier<List<String>> completedWordsNotifier = ValueNotifier<List<String>>([]);
+  final ValueNotifier<String> currentThemeNotifier = ValueNotifier<String>('');
   // Scoring + UX
   int score = 0;
   final ValueNotifier<int> scoreNotifier = ValueNotifier<int>(0);
@@ -109,7 +130,55 @@ class HangmanGame extends FlameGame {
     showScreen('MainMenu', showNavBar: true);
   }
 
-  void startGame(String category, {String? customWord, bool multiplayer = false, String? roomId, bool host = false, String? hId, String? oId, String? levelId, DifficultyLevel? selectedDifficulty, int minScore = 20}) {
+  int _stableHash(String input) {
+    int hash = 0;
+    for (final unit in input.codeUnits) {
+      hash = ((hash * 31) + unit) & 0x7fffffff;
+    }
+    return hash;
+  }
+
+  void startDailyChallenge() {
+    final seed = ProgressService().generateDailyChallengeSeed();
+    final categoryList = categories.keys.toList();
+    if (categoryList.isEmpty) {
+      startGame('Animals');
+      return;
+    }
+
+    final categoryIndex = _stableHash(seed) % categoryList.length;
+    final category = categoryList[categoryIndex];
+    final words = categories[category] ?? const ['flutter'];
+    final wordIndex = _stableHash('$seed-$category') % words.length;
+    final word = words[wordIndex].toLowerCase();
+
+    startGame(
+      category,
+      customWord: word,
+      selectedDifficulty: DifficultyLevel.hard,
+      minScore: 34,
+      timeLimitSeconds: 120,
+      startingHints: 1,
+    );
+  }
+
+  void startGame(
+    String category, {
+    String? customWord,
+    bool multiplayer = false,
+    String? roomId,
+    bool host = false,
+    String? hId,
+    String? oId,
+    String? levelId,
+    DifficultyLevel? selectedDifficulty,
+    int minScore = 20,
+    int timeLimitSeconds = 0,
+    int startingHints = 3,
+    bool localDuel = false,
+    String localDuelStyle = 'Classic Duel',
+    bool startFromTheme = false, // NEW: load all words from a theme
+  }) {
     isMultiplayer = multiplayer;
     currentRoomId = roomId;
     isHost = host;
@@ -120,6 +189,10 @@ class HangmanGame extends FlameGame {
     difficulty = selectedDifficulty ?? DifficultyLevel.medium;
     maxTries = difficulty.maxWrongGuesses;
     minScoreForLevel = minScore;
+    roundTimeLimitSeconds = timeLimitSeconds;
+    startingHintsPerRound = startingHints;
+    isLocalDuel = localDuel;
+    duelStyle = localDuelStyle;
     currentRound = 1;
     hasAwardedPoints = false;
     hasForfeited = false;
@@ -127,6 +200,22 @@ class HangmanGame extends FlameGame {
     scoreNotifier.value = 0;
     lastScoreGainNotifier.value = 0;
     _comboCount = 0;
+    
+    // NEW: Multi-word theme setup
+    isThemeChallenge = startFromTheme && !multiplayer && customWord == null;
+    if (isThemeChallenge) {
+      currentThemeName = category;
+      themeWordsToGuess = getAllWordsInTheme(category);
+      completedWords = [];
+      currentWordIndex = 0;
+      
+      // Shuffle words for variety
+      themeWordsToGuess.shuffle();
+      
+      totalWordsNotifier.value = themeWordsToGuess.length;
+      completedWordsNotifier.value = [];
+      currentThemeNotifier.value = category;
+    }
     
     _initRound(customWord: customWord);
 
@@ -142,6 +231,7 @@ class HangmanGame extends FlameGame {
     }
 
     _startAfkTimer();
+    _startRoundTimer();
     showScreen('GameUI', showNavBar: false);
   }
 
@@ -151,6 +241,11 @@ class HangmanGame extends FlameGame {
       isWaitingForWordNotifier.value = true;
       // Round 1: Host sets word. Round 2: Opponent sets word.
       currentTurnId = (currentRound == 1) ? hostId : opponentId;
+    } else if (isThemeChallenge && currentWordIndex < themeWordsToGuess.length) {
+      // Load next word from theme
+      secretWord = themeWordsToGuess[currentWordIndex];
+      isWaitingForWordNotifier.value = false;
+      wordProgressNotifier.value = currentWordIndex + 1;
     } else if (customWord != null) {
       secretWord = customWord;
       isWaitingForWordNotifier.value = false;
@@ -161,13 +256,70 @@ class HangmanGame extends FlameGame {
     revealedLetters = List.filled(secretWord.length, '');
     guessedLetters = [];
     wrongGuesses = 0;
+    hintsNotifier.value = startingHintsPerRound;
+    hintNotifier.value = null;
     isGameOver = false;
     didWin = false;
     hasAwardedPoints = false;
     // reset timing and combo for the new round
     _roundStartTime = DateTime.now();
     _comboCount = 0;
+    roundTimeLeftNotifier.value = roundTimeLimitSeconds;
+    multiplayerTurnTimeLeftNotifier.value = 0;
+    _lastRoomGuessCount = 0;
     _updateNotifiers();
+  }
+
+  void _stopMultiplayerTurnTimer() {
+    _multiplayerTurnTimer?.cancel();
+    multiplayerTurnTimeLeftNotifier.value = 0;
+  }
+
+  void _startOrResetMultiplayerTurnTimer() {
+    _multiplayerTurnTimer?.cancel();
+    if (!isMultiplayer || isWaitingForWordNotifier.value || isGameOver || secretWord.isEmpty) {
+      multiplayerTurnTimeLeftNotifier.value = 0;
+      return;
+    }
+
+    multiplayerTurnTimeLeftNotifier.value = multiplayerTurnLimitSeconds;
+    _multiplayerTurnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!isMultiplayer || isGameOver) {
+        timer.cancel();
+        multiplayerTurnTimeLeftNotifier.value = 0;
+        return;
+      }
+
+      final next = multiplayerTurnTimeLeftNotifier.value - 1;
+      multiplayerTurnTimeLeftNotifier.value = next;
+      if (next <= 0) {
+        timer.cancel();
+        _handleMultiplayerTurnTimeout();
+      }
+    });
+  }
+
+  void _handleMultiplayerTurnTimeout() {
+    if (!isMultiplayer || isGameOver || secretWord.isEmpty) {
+      return;
+    }
+    final currentUserId = AuthService().currentUser?.id;
+    // Only active guesser should publish timeout action to room.
+    if (currentUserId == null || currentTurnId != currentUserId) {
+      return;
+    }
+
+    final used = guessedLetters.toSet();
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+    String? forced;
+    for (final c in alphabet.split('')) {
+      if (!used.contains(c) && !secretWord.contains(c)) {
+        forced = c;
+        break;
+      }
+    }
+    forced ??= alphabet.split('').firstWhere((c) => !used.contains(c), orElse: () => 'a');
+    makeGuess(forced);
   }
 
   void restartMultiplayer() {
@@ -214,9 +366,12 @@ class HangmanGame extends FlameGame {
     // Only allow hint for current guesser (or in single-player always)
     if (isMultiplayer && currentTurnId != AuthService().currentUser?.id) return null;
 
-    String? hint = getHintForWord(secretWord);
+    // Get hint from theme (if in theme challenge) or category
+    final hintSource = isThemeChallenge ? (currentThemeName ?? '') : currentCategory;
+    String? hint = getHintForWord(hintSource, secretWord);
+    
     // fallback: give category + length hint
-    hint ??= '$currentCategory • ${secretWord.length} letters';
+    hint ??= '$hintSource • ${secretWord.length} letters';
 
     hintNotifier.value = hint;
     hintsNotifier.value = hintsNotifier.value - 1;
@@ -240,6 +395,7 @@ class HangmanGame extends FlameGame {
       _gameService.updateRoom(currentRoomId!, {
         'guessedLetters': updatedGuessed,
       });
+      _startOrResetMultiplayerTurnTimer();
       return; 
     }
 
@@ -261,6 +417,16 @@ class HangmanGame extends FlameGame {
       wrongGuesses++;
       // reset combo on miss
       _comboCount = 0;
+      if (awardPoints && isLocalDuel) {
+        // In duel mode misses create visible score swings.
+        score = (score - 4).clamp(0, 1 << 31);
+        scoreNotifier.value = score;
+        lastScoreGainNotifier.value = -4;
+        _clearLastScoreTimer?.cancel();
+        _clearLastScoreTimer = Timer(const Duration(milliseconds: 1100), () {
+          lastScoreGainNotifier.value = 0;
+        });
+      }
     } else {
       // award points only when explicitly requested (single-player local guesses)
       if (awardPoints) {
@@ -278,7 +444,7 @@ class HangmanGame extends FlameGame {
           timeBonus = 2;
         }
 
-        final int gained = (basePoints * multiplier).round() + timeBonus;
+        final int gained = (basePoints * multiplier * difficulty.scoreMultiplier).round() + timeBonus;
         score += gained;
         scoreNotifier.value = score;
         lastScoreGainNotifier.value = gained;
@@ -319,12 +485,21 @@ class HangmanGame extends FlameGame {
 
     isWaitingForWordNotifier.value = secretWord.isEmpty;
 
+    if (isWaitingForWordNotifier.value) {
+      _stopMultiplayerTurnTimer();
+    }
+
     revealedLetters = List.filled(secretWord.length, '');
     wrongGuesses = 0;
     if (secretWord.isNotEmpty) {
       for (var letter in guessedLetters) {
         _processGuess(letter);
       }
+    }
+
+    if (secretWord.isNotEmpty && guessedLetters.length != _lastRoomGuessCount) {
+      _lastRoomGuessCount = guessedLetters.length;
+      _startOrResetMultiplayerTurnTimer();
     }
 
     _checkGameOver();
@@ -337,8 +512,27 @@ class HangmanGame extends FlameGame {
     }
     
     if (!revealedLetters.contains('')) {
+      // Word guessed correctly
+      if (isThemeChallenge) {
+        // Mark this word as completed
+        completedWords.add(secretWord);
+        completedWordsNotifier.value = List.from(completedWords);
+        
+        // Check if there are more words to guess
+        if (currentWordIndex + 1 < themeWordsToGuess.length) {
+          // Load next word instead of ending game
+          currentWordIndex++;
+          _initRound();
+          return;
+        }
+      }
+      
+      // All words completed (or single-word game)
       isGameOver = true;
       didWin = true;
+      _roundTimer?.cancel();
+      _afkTimer?.cancel();
+      _stopMultiplayerTurnTimer();
       if (isMultiplayer) {
         _handleMultiplayerWin();
       } else {
@@ -350,8 +544,12 @@ class HangmanGame extends FlameGame {
       }
       overlays.add('GameOver');
     } else if (wrongGuesses >= maxTries) {
+      // Max wrong guesses reached - game over (fail)
       isGameOver = true;
       didWin = false;
+      _roundTimer?.cancel();
+      _afkTimer?.cancel();
+      _stopMultiplayerTurnTimer();
       if (isMultiplayer) {
         _handleMultiplayerWin();
       } else {
@@ -443,12 +641,50 @@ class HangmanGame extends FlameGame {
     _startAfkTimer();
   }
 
+  void _startRoundTimer() {
+    _roundTimer?.cancel();
+    if (roundTimeLimitSeconds <= 0 || isMultiplayer) {
+      roundTimeLeftNotifier.value = 0;
+      return;
+    }
+
+    roundTimeLeftNotifier.value = roundTimeLimitSeconds;
+    _roundTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (isGameOver) {
+        timer.cancel();
+        return;
+      }
+
+      final next = roundTimeLeftNotifier.value - 1;
+      roundTimeLeftNotifier.value = next;
+      if (next <= 0) {
+        timer.cancel();
+        _handleRoundTimeout();
+      }
+    });
+  }
+
+  void _handleRoundTimeout() {
+    if (isGameOver) {
+      return;
+    }
+
+    isGameOver = true;
+    didWin = false;
+    hasForfeited = true;
+    _afkTimer?.cancel();
+    overlays.add('GameOver');
+    _updateNotifiers();
+  }
+
   void _handleAfkTimeout() {
     if (isGameOver) return;
     
     isGameOver = true;
     didWin = false;
     hasForfeited = true;
+    _roundTimer?.cancel();
+    _stopMultiplayerTurnTimer();
     
     overlays.add('GameOver');
     _updateNotifiers();
@@ -461,6 +697,8 @@ class HangmanGame extends FlameGame {
     didWin = false;
     hasForfeited = true;
     _afkTimer?.cancel();
+    _roundTimer?.cancel();
+    _stopMultiplayerTurnTimer();
     
     overlays.add('GameOver');
     _updateNotifiers();
@@ -472,6 +710,9 @@ class HangmanGame extends FlameGame {
   }
 
   Future<void> resetToMenu() async {
+    _afkTimer?.cancel();
+    _roundTimer?.cancel();
+    _stopMultiplayerTurnTimer();
     if (isMultiplayer && currentRoomId != null) {
       try {
         await _gameService.leaveRoom(currentRoomId!);

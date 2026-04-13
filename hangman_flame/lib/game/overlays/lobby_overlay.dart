@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
+import 'package:flutter/services.dart';
 import '../hangman_game.dart';
 import '../../services/game_service.dart';
 import '../../services/auth_service.dart';
 import 'dart:async';
 import '../widgets/ui_widgets.dart';
+import '../../theme/app_colors.dart';
 
 class LobbyOverlay extends StatefulWidget {
   final HangmanGame game;
@@ -62,6 +64,21 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
       _isLoading = false;
     });
     _subscribeToRoom(room.id);
+  }
+
+  Future<void> _quickMatch() async {
+    // Quick match creates a room and immediately readies host for instant sharing.
+    await _createRoom();
+    if (!mounted || _currentRoom == null) {
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: _currentRoom!.getStringValue('code')));
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Quick Match ready. Room code copied to clipboard.')),
+    );
   }
 
   Future<void> _joinRoom() async {
@@ -174,11 +191,35 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
   }
 
   Widget _buildJoinCreate() {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Multiplayer Lobby', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const Text('Multiplayer Arena', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: cs.surface2,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.flash_on, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Ranked-style pressure: live turns, forced timeout misses, and rematch loops.',
+                  style: TextStyle(color: cs.textPrimary, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 20),
+        SecondaryButton(label: 'Quick Match', onPressed: _isLoading ? null : _quickMatch),
+        const SizedBox(height: 10),
         PrimaryButton(label: 'Create Room', onPressed: _isLoading ? null : _createRoom),
         const SizedBox(height: 10),
         const Text('OR'),
@@ -193,6 +234,7 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
   }
 
   Widget _buildWaitingRoom() {
+    final cs = Theme.of(context).colorScheme;
     final code = _currentRoom?.getStringValue('code') ?? '';
     final opponent = _currentRoom?.getStringValue('opponent') ?? '';
     
@@ -201,16 +243,38 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
       children: [
         const Text('Waiting for Opponent', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
-        Text('Room Code: $code', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Room Code: $code', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: cs.primary)),
+            IconButton(
+              tooltip: 'Copy Code',
+              icon: Icon(Icons.copy_rounded, size: 20, color: cs.primary),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: code));
+                if (!mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied')));
+              },
+            ),
+          ],
+        ),
         const SizedBox(height: 20),
         if (opponent.isEmpty)
-          const CircularProgressIndicator()
+          Column(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 10),
+              Text('Share code and get ready for a tense duel.', style: TextStyle(color: cs.textMuted)),
+            ],
+          )
         else ...[
-          const Text('Opponent Joined!', style: TextStyle(color: Colors.green)),
+          Text('Opponent Joined! Arena locked.', style: TextStyle(color: cs.letterCorrect, fontWeight: FontWeight.w700)),
           const SizedBox(height: 20),
           if (_currentRoom?.getStringValue('host') == AuthService().currentUser?.id)
             PrimaryButton(
-              label: 'Start Game',
+              label: 'Start Match',
               onPressed: () => widget.game.startGame('Multiplayer', 
                 roomId: _currentRoom!.id, 
                 multiplayer: true, 

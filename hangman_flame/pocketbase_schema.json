@@ -1,52 +1,114 @@
 {
   "meta": {
-    "generatedFrom": "inferred from code (lib/**)",
-    "note": "Verify these fields with your PocketBase admin. Some PocketBase-specific options (field IDs, visibility, indexes) are not included and should be configured in the PB admin UI or via export/import."
+    "version": "2.0",
+    "generatedFrom": "inferred from Flutter code (lib/**)",
+    "purpose": "PocketBase schema blueprint with required and recommended multiplayer fields",
+    "note": "This is a backend contract file for setup/review. If you import via PocketBase migrations, map field types/options to PocketBase field IDs and collection options."
   },
   "collections": [
     {
       "name": "users",
-      "description": "Application users (PocketBase auth collection)",
+      "type": "auth",
+      "description": "Application users",
       "fields": [
         { "name": "username", "type": "text", "required": true },
-        { "name": "email", "type": "email", "required": true },
-        { "name": "password", "type": "password", "required": true },
         { "name": "score", "type": "number", "required": false, "default": 0 }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_users_score ON users (score)"
       ]
     },
     {
       "name": "rooms",
-      "description": "Multiplayer room state",
+      "type": "base",
+      "description": "Multiplayer room and match state",
       "fields": [
         { "name": "code", "type": "text", "required": true },
-        { "name": "host", "type": "relation", "target": "users", "required": true },
-        { "name": "opponent", "type": "relation", "target": "users", "required": false },
-        { "name": "status", "type": "text", "required": true, "allowedValues": ["waiting", "playing", "ended"] },
-        { "name": "guessedLetters", "type": "json", "description": "array of letters guessed", "required": false },
-        { "name": "wrongGuesses", "type": "number", "required": false },
-        { "name": "turn", "type": "relation", "target": "users", "required": false, "description": "id of user whose turn it is" },
-        { "name": "secretWord", "type": "text", "required": false, "private": true },
-        { "name": "round", "type": "number", "required": false }
+        { "name": "host", "type": "relation", "target": "users", "required": true, "maxSelect": 1 },
+        { "name": "opponent", "type": "relation", "target": "users", "required": false, "maxSelect": 1 },
+        { "name": "status", "type": "select", "required": true, "allowedValues": ["waiting", "playing", "ended"], "default": "waiting" },
+        { "name": "turn", "type": "relation", "target": "users", "required": false, "maxSelect": 1 },
+        { "name": "secretWord", "type": "text", "required": false, "hidden": true },
+        { "name": "guessedLetters", "type": "json", "required": false, "default": [] },
+        { "name": "wrongGuesses", "type": "number", "required": false, "default": 0 },
+        { "name": "round", "type": "number", "required": false, "default": 1 },
+
+        { "name": "bestOf", "type": "number", "required": false, "default": 3 },
+        { "name": "hostRoundWins", "type": "number", "required": false, "default": 0 },
+        { "name": "opponentRoundWins", "type": "number", "required": false, "default": 0 },
+        { "name": "duelStyle", "type": "select", "required": false, "allowedValues": ["Classic Duel", "Blitz Duel", "Mindgame"], "default": "Classic Duel" },
+        { "name": "turnDeadlineAt", "type": "date", "required": false },
+        { "name": "roundStartedAt", "type": "date", "required": false },
+        { "name": "winner", "type": "relation", "target": "users", "required": false, "maxSelect": 1 },
+        { "name": "roomVersion", "type": "number", "required": false, "default": 0 }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_rooms_code_unique ON rooms (code)",
+        "CREATE INDEX idx_rooms_status ON rooms (status)",
+        "CREATE INDEX idx_rooms_host ON rooms (host)",
+        "CREATE INDEX idx_rooms_opponent ON rooms (opponent)"
+      ],
+      "accessRules": {
+        "listRule": "@request.auth.id != '' && (host.id = @request.auth.id || opponent.id = @request.auth.id)",
+        "viewRule": "@request.auth.id != '' && (host.id = @request.auth.id || opponent.id = @request.auth.id)",
+        "createRule": "@request.auth.id != '' && host.id = @request.auth.id",
+        "updateRule": "@request.auth.id != '' && (host.id = @request.auth.id || opponent.id = @request.auth.id)",
+        "deleteRule": "@request.auth.id != '' && host.id = @request.auth.id"
+      },
+      "ruleNotes": [
+        "For strict anti-cheat, use PB hooks to enforce that only the current turn player mutates guessedLetters.",
+        "Increment roomVersion in server hooks and reject stale writes to avoid race conditions."
       ]
     },
     {
       "name": "messages",
-      "description": "Chat messages linked to rooms",
+      "type": "base",
+      "description": "Room chat and system events",
       "fields": [
-        { "name": "room", "type": "relation", "target": "rooms", "required": true },
-        { "name": "user", "type": "relation", "target": "users", "required": true },
-        { "name": "text", "type": "text", "required": true }
-      ]
+        { "name": "room", "type": "relation", "target": "rooms", "required": true, "maxSelect": 1 },
+        { "name": "user", "type": "relation", "target": "users", "required": false, "maxSelect": 1 },
+        { "name": "text", "type": "text", "required": true },
+        { "name": "kind", "type": "select", "required": false, "allowedValues": ["chat", "system"], "default": "chat" }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_messages_room_created ON messages (room, created)"
+      ],
+      "accessRules": {
+        "listRule": "@request.auth.id != '' && (room.host.id = @request.auth.id || room.opponent.id = @request.auth.id)",
+        "viewRule": "@request.auth.id != '' && (room.host.id = @request.auth.id || room.opponent.id = @request.auth.id)",
+        "createRule": "@request.auth.id != '' && (room.host.id = @request.auth.id || room.opponent.id = @request.auth.id)",
+        "updateRule": "false",
+        "deleteRule": "false"
+      }
     },
     {
       "name": "user_progress",
-      "description": "Per-user progress and collectibles",
+      "type": "base",
+      "description": "Per-user progress, collectibles, and local sync mirrors",
       "fields": [
-        { "name": "user", "type": "relation", "target": "users", "required": true },
-        { "name": "levelsCompleted", "type": "json", "description": "array of level ids", "required": false },
-        { "name": "collectibles", "type": "json", "description": "array of collectible ids", "required": false },
+        { "name": "user", "type": "relation", "target": "users", "required": true, "maxSelect": 1 },
+        { "name": "levelsCompleted", "type": "json", "required": false, "default": [] },
+        { "name": "collectibles", "type": "json", "required": false, "default": [] },
         { "name": "currency", "type": "number", "required": false, "default": 0 }
-      ]
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_user_progress_user_unique ON user_progress (user)"
+      ],
+      "accessRules": {
+        "listRule": "@request.auth.id != '' && user.id = @request.auth.id",
+        "viewRule": "@request.auth.id != '' && user.id = @request.auth.id",
+        "createRule": "@request.auth.id != '' && user.id = @request.auth.id",
+        "updateRule": "@request.auth.id != '' && user.id = @request.auth.id",
+        "deleteRule": "@request.auth.id != '' && user.id = @request.auth.id"
+      }
     }
-  ]
+  ],
+  "serverHooks": {
+    "recommended": [
+      "Before rooms.update: enforce turn ownership for guessedLetters mutations.",
+      "Before rooms.update: validate secretWord format (a-z only) and minimum length.",
+      "Before messages.create: throttle chat by user and room (rate limit).",
+      "After rooms.update: emit system messages for timeout, round end, and rematch events."
+    ]
+  }
 }
