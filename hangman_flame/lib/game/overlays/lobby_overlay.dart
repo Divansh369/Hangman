@@ -4,6 +4,7 @@ import '../hangman_game.dart';
 import '../../services/game_service.dart';
 import '../../services/auth_service.dart';
 import 'dart:async';
+import '../widgets/ui_widgets.dart';
 
 class LobbyOverlay extends StatefulWidget {
   final HangmanGame game;
@@ -20,9 +21,42 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
   StreamSubscription? _roomSubscription;
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _tryRecoverRoom();
+  }
+
+  Future<void> _tryRecoverRoom() async {
+    final user = AuthService().currentUser;
+    if (user == null) {
+      return;
+    }
+    final room = await _gameService.findActiveRoomForUser(user.id);
+    if (room != null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _currentRoom = room);
+      _subscribeToRoom(room.id);
+      if (room.getStringValue('status') == 'playing') {
+        widget.game.startGame('Multiplayer', 
+          roomId: room.id, 
+          multiplayer: true, 
+          host: room.getStringValue('host') == user.id,
+          hId: room.getStringValue('host'),
+          oId: room.getStringValue('opponent'),
+        );
+      }
+    }
+  }
+
   Future<void> _createRoom() async {
     setState(() => _isLoading = true);
     final room = await _gameService.createRoom();
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _currentRoom = room;
       _isLoading = false;
@@ -33,8 +67,11 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
   Future<void> _joinRoom() async {
     setState(() => _isLoading = true);
     final room = await _gameService.joinRoom(_codeController.text);
+    if (!mounted) {
+      return;
+    }
     setState(() => _isLoading = false);
-    
+
     if (room != null) {
       setState(() => _currentRoom = room);
       _subscribeToRoom(room.id);
@@ -48,6 +85,9 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
         );
       }
     } else {
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room not found or full')));
     }
   }
@@ -55,7 +95,9 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
   void _subscribeToRoom(String roomId) {
     _roomSubscription?.cancel();
     _roomSubscription = _gameService.subscribeToRoom(roomId).listen((record) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() => _currentRoom = record);
       
       if (widget.game.isMultiplayer && widget.game.currentRoomId == roomId) {
@@ -74,6 +116,43 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
     });
   }
 
+  Future<void> _leaveRoomAndClose() async {
+    if (_currentRoom != null) {
+      try {
+        await _gameService.leaveRoom(_currentRoom!.id);
+      } catch (e) {
+        debugPrint('Error leaving room: $e');
+      }
+      _roomSubscription?.cancel();
+    }
+    setState(() => _currentRoom = null);
+    widget.game.showMainMenu();
+  }
+
+  Future<void> _resyncRoom() async {
+    if (_currentRoom == null) {
+      return;
+    }
+    final fresh = await _gameService.resyncRoom(_currentRoom!.id);
+    if (fresh != null) {
+      setState(() => _currentRoom = fresh);
+      if (fresh.getStringValue('status') == 'playing') {
+        widget.game.startGame('Multiplayer', 
+          roomId: fresh.id, 
+          multiplayer: true, 
+          host: fresh.getStringValue('host') == AuthService().currentUser?.id,
+          hId: fresh.getStringValue('host'),
+          oId: fresh.getStringValue('opponent'),
+        );
+      }
+    } else {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to reconnect to room')));
+    }
+  }
+
   @override
   void dispose() {
     _roomSubscription?.cancel();
@@ -83,15 +162,13 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Container(
+      child: CardSurface(
         width: 350,
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          child: _currentRoom == null ? _buildJoinCreate() : _buildWaitingRoom(),
         ),
-        child: _currentRoom == null ? _buildJoinCreate() : _buildWaitingRoom(),
       ),
     );
   }
@@ -102,21 +179,15 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
       children: [
         const Text('Multiplayer Lobby', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _createRoom,
-          style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-          child: const Text('Create Room'),
-        ),
+        PrimaryButton(label: 'Create Room', onPressed: _isLoading ? null : _createRoom),
         const SizedBox(height: 10),
         const Text('OR'),
         const SizedBox(height: 10),
         TextField(controller: _codeController, decoration: const InputDecoration(labelText: 'Enter Room Code')),
         const SizedBox(height: 10),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _joinRoom,
-          style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-          child: const Text('Join Room'),
-        ),
+        PrimaryButton(label: 'Join Room', onPressed: _isLoading ? null : _joinRoom),
+        const SizedBox(height: 10),
+        TextButton(onPressed: widget.game.showMainMenu, child: const Text('Back to Home')),
       ],
     );
   }
@@ -138,7 +209,8 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
           const Text('Opponent Joined!', style: TextStyle(color: Colors.green)),
           const SizedBox(height: 20),
           if (_currentRoom?.getStringValue('host') == AuthService().currentUser?.id)
-            ElevatedButton(
+            PrimaryButton(
+              label: 'Start Game',
               onPressed: () => widget.game.startGame('Multiplayer', 
                 roomId: _currentRoom!.id, 
                 multiplayer: true, 
@@ -146,11 +218,20 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
                 hId: _currentRoom!.getStringValue('host'),
                 oId: _currentRoom!.getStringValue('opponent'),
               ),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-              child: const Text('Start Game'),
+              height: 52,
             ),
         ],
-        TextButton(onPressed: () => setState(() => _currentRoom = null), child: const Text('Cancel')),
+        Row(
+          children: [
+            Expanded(
+              child: TextButton(onPressed: _resyncRoom, child: const Text('Reconnect')),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextButton(onPressed: _leaveRoomAndClose, child: const Text('Quit')),
+            ),
+          ],
+        ),
       ],
     );
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -8,41 +9,74 @@ class AuthService {
   AuthService._internal();
 
   final PocketBase pb = PocketBase('https://pocketbase.fiorejoy.com');
+  String? lastError;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final authData = prefs.getString('pb_auth');
     if (authData != null) {
-      final decoded = jsonDecode(authData);
-      final modelData = decoded['model'];
-      if (modelData != null) {
-        // The RecordModel constructor takes a Map of data.
-        // It seems the model object in pb.authStore.model is expected to be a RecordModel.
-        // We can pass the full decoded model map as the data.
-        final record = RecordModel(Map<String, dynamic>.from(modelData));
-        pb.authStore.save(decoded['token'], record);
+      try {
+        final decoded = jsonDecode(authData) as Map<String, dynamic>;
+        final token = decoded['token'] as String?;
+        String? userId;
+        if (decoded.containsKey('userId')) {
+          userId = decoded['userId'] as String?;
+        } else if (decoded['model'] is Map) {
+          userId = (decoded['model'] as Map)['id'] as String?;
+        }
+
+        if (token != null) {
+          // Save a minimal auth state first so other calls can inspect the token.
+          if (userId != null) {
+            try {
+              pb.authStore.save(token, RecordModel({'id': userId}));
+              // Try refreshing the full user record from server; ignore errors.
+              final full = await pb.collection('users').getOne(userId);
+              pb.authStore.save(token, full);
+              } catch (e) {
+              debugPrint('AuthService: failed to refresh user record: $e');
+            }
+          } else {
+            try {
+              pb.authStore.save(token, RecordModel({}));
+            } catch (e) {
+              debugPrint('AuthService: failed to set minimal auth store: $e');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('AuthService.init: failed to parse stored auth: $e');
+        await prefs.remove('pb_auth');
       }
     }
 
     pb.authStore.onChange.listen((event) {
-      prefs.setString('pb_auth', jsonEncode({
-        'token': event.token,
-        'model': event.model,
-      }));
+      try {
+        final record = event.record;
+        final map = <String, dynamic>{'token': event.token};
+        if (record != null) map['userId'] = record.id;
+        prefs.setString('pb_auth', jsonEncode(map));
+      } catch (e) {
+        debugPrint('AuthService: failed to persist auth: $e');
+      }
     });
   }
 
   Future<bool> login(String email, String password) async {
+    lastError = null;
     try {
       await pb.collection('users').authWithPassword(email, password);
+      lastError = null;
       return true;
     } catch (e) {
-      print('Login error: $e');
+      lastError = e.toString();
+      debugPrint('Login error: $e');
       return false;
     }
   }
 
   Future<bool> register(String username, String email, String password) async {
+    lastError = null;
     try {
       await pb.collection('users').create(body: {
         'username': username,
@@ -53,15 +87,18 @@ class AuthService {
       });
       return await login(email, password);
     } catch (e) {
-      print('Register error: $e');
+      lastError = e.toString();
+      debugPrint('Register error: $e');
       return false;
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pb_auth');
     pb.authStore.clear();
   }
 
   bool get isLoggedIn => pb.authStore.isValid;
-  RecordModel? get currentUser => pb.authStore.model as RecordModel?;
+  RecordModel? get currentUser => pb.authStore.record;
 }

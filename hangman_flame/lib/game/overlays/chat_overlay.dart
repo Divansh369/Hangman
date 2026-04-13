@@ -25,7 +25,9 @@ class _ChatOverlayState extends State<ChatOverlay> {
     super.initState();
     if (widget.game.currentRoomId != null) {
       _chatSubscription = _gameService.subscribeToChat(widget.game.currentRoomId!).listen((msg) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         setState(() => _messages.add(msg));
         _scrollToBottom();
       });

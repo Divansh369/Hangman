@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:math';
 import 'dart:async';
@@ -36,7 +37,7 @@ class GameService {
         });
       }
     } catch (e) {
-      print('Join room error: $e');
+      debugPrint('Join room error: $e');
     }
     return null;
   }
@@ -77,8 +78,12 @@ class GameService {
       if (e.record != null && e.record!.getStringValue('room') == roomId) {
         controller.add(e.record!);
       }
+    }).then((unsubscribe) {
+      controller.onCancel = () {
+        unsubscribe();
+        controller.close();
+      };
     });
-    // Cleanup handled similarly to subscribeToRoom
     return controller.stream;
   }
 
@@ -92,5 +97,49 @@ class GameService {
       perPage: 10,
     );
     return result.items;
+  }
+
+  Future<void> leaveRoom(String roomId) async {
+    try {
+      final room = await pb.collection('rooms').getOne(roomId);
+      final currentUser = AuthService().currentUser?.id;
+      if (currentUser == null) {
+        return;
+      }
+
+      final host = room.getStringValue('host');
+      final opponent = room.getStringValue('opponent');
+
+      if (currentUser == host) {
+        // Host leaving: mark room ended so others see it finished
+        await pb.collection('rooms').update(roomId, body: {'status': 'ended'});
+      } else if (currentUser == opponent) {
+        // Opponent leaving: clear opponent and set status back to waiting
+        await pb.collection('rooms').update(roomId, body: {'opponent': null, 'status': 'waiting'});
+      }
+    } catch (e) {
+      debugPrint('leaveRoom error: $e');
+    }
+  }
+
+  Future<RecordModel?> resyncRoom(String roomId) async {
+    try {
+      return await pb.collection('rooms').getOne(roomId);
+    } catch (e) {
+      debugPrint('resyncRoom error: $e');
+      return null;
+    }
+  }
+
+  Future<RecordModel?> findActiveRoomForUser(String userId) async {
+    try {
+      final list = await pb.collection('rooms').getList(filter: 'host = "$userId" || opponent = "$userId"');
+      if (list.items.isNotEmpty) {
+        return list.items.first;
+      }
+    } catch (e) {
+      debugPrint('findActiveRoomForUser error: $e');
+    }
+    return null;
   }
 }

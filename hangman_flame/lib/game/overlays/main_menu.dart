@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:pocketbase/pocketbase.dart';
 import '../hangman_game.dart';
 import '../../data/words.dart';
 import '../../services/auth_service.dart';
-import '../../services/game_service.dart';
+import '../widgets/ui_widgets.dart';
+import '../../theme/app_colors.dart';
 
 class MainMenu extends StatefulWidget {
   final HangmanGame game;
@@ -14,143 +14,51 @@ class MainMenu extends StatefulWidget {
 }
 
 class _MainMenuState extends State<MainMenu> {
-  String selectedCategory = 'Animals';
+  String selectedCategory = categories.keys.first;
   String mode = '1-Player';
   final TextEditingController _customWordController = TextEditingController();
-  final GameService _gameService = GameService();
+
+  @override
+  void dispose() {
+    _customWordController.dispose();
+    super.dispose();
+  }
 
   void _showLeaderboard() {
     showDialog(
       context: context,
-      builder: (context) => FutureBuilder<List<RecordModel>>(
-        future: _gameService.getLeaderboard(),
-        builder: (context, snapshot) {
-          return AlertDialog(
-            title: const Text('🏆 Top Players', textAlign: TextAlign.center),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: snapshot.connectionState == ConnectionState.waiting
-                  ? const Center(child: CircularProgressIndicator())
-                  : snapshot.hasError
-                      ? const Text('Error loading leaderboard')
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: snapshot.data?.length ?? 0,
-                          itemBuilder: (context, i) {
-                            final user = snapshot.data![i];
-                            return ListTile(
-                              leading: Text('#${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              title: Text(user.getStringValue('username')),
-                              trailing: Text('${user.getIntValue('score')} pts', 
-                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                            );
-                          },
-                        ),
-            ),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-          );
-        },
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leaderboard'),
+        content: const Text('Leaderboard coming soon.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final user = AuthService().currentUser;
-
-    return Center(
-      child: SingleChildScrollView(
-        child: Container(
-          width: 350,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (user != null) ...[
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.blue[100],
-                      child: Text(
-                        (user.getStringValue('username').isNotEmpty) 
-                          ? user.getStringValue('username')[0].toUpperCase() 
-                          : '?'
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user.getStringValue('username'), style: const TextStyle(fontWeight: FontWeight.bold)),
-                          Text('${user.getIntValue('score')} Points', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.logout, size: 20, color: Colors.redAccent),
-                      onPressed: () {
-                        AuthService().logout();
-                        setState(() {});
-                      },
-                    ),
-                  ],
-                ),
-                const Divider(height: 32),
-              ],
-              Text(
-                '🪓 HANGMAN',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 2),
-              ),
-              const SizedBox(height: 24),
-              _buildModeSelector(),
-              const SizedBox(height: 20),
-              _buildContextInputs(),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
-                ),
-                onPressed: _onStartPressed,
-                child: const Text('START GAME', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: _showLeaderboard,
-                icon: const Icon(Icons.emoji_events),
-                label: const Text('LEADERBOARD'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void _onStartPressed() {
+    if (mode == '1-Player') {
+      widget.game.startGame(selectedCategory);
+    } else if (mode == '2-Player') {
+      if (_customWordController.text.isNotEmpty) {
+        widget.game.startGame('Custom', customWord: _customWordController.text.toLowerCase());
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a secret word')));
+      }
+    } else if (mode == 'Multiplayer') {
+      if (AuthService().isLoggedIn) {
+        widget.game.showScreen('Lobby');
+      } else {
+        widget.game.showScreen('Auth');
+      }
+    }
   }
 
   Widget _buildModeSelector() {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: cs.surface2,
         borderRadius: BorderRadius.circular(12),
       ),
       child: DropdownButtonHideUnderline(
@@ -170,16 +78,17 @@ class _MainMenuState extends State<MainMenu> {
   }
 
   Widget _buildContextInputs() {
+    final cs = Theme.of(context).colorScheme;
     if (mode == '1-Player') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Category', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          Text('Category', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.textMuted)),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: cs.surface2,
               borderRadius: BorderRadius.circular(12),
             ),
             child: DropdownButtonHideUnderline(
@@ -206,34 +115,162 @@ class _MainMenuState extends State<MainMenu> {
           labelText: 'Secret Word',
           hintText: 'Enter word for Player 2',
           filled: true,
-          fillColor: Colors.grey[100],
+          fillColor: cs.surface2,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         ),
       );
     } else {
-      return const Text(
+      return Text(
         'Challenge players around the world!',
         textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.grey),
+        style: TextStyle(color: cs.textMuted),
       );
     }
   }
 
-  void _onStartPressed() {
-    if (mode == '1-Player') {
-      widget.game.startGame(selectedCategory);
-    } else if (mode == '2-Player') {
-      if (_customWordController.text.isNotEmpty) {
-        widget.game.startGame('Custom', customWord: _customWordController.text.toLowerCase());
-      }
-    } else if (mode == 'Multiplayer') {
-      if (AuthService().isLoggedIn) {
-        widget.game.overlays.add('Lobby');
-        widget.game.overlays.remove('MainMenu');
-      } else {
-        widget.game.overlays.add('Auth');
-        widget.game.overlays.remove('MainMenu');
-      }
-    }
+  @override
+  Widget build(BuildContext context) {
+    final user = AuthService().currentUser;
+    final cs = Theme.of(context).colorScheme;
+
+    return OverlayScaffold(
+      width: 380,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header row: user info (left) and action icons (right)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              user != null
+                  ? Row(children: [
+                      CircleAvatar(
+                        backgroundColor: cs.primaryContainer,
+                        child: Text((user.getStringValue('username').isNotEmpty) ? user.getStringValue('username')[0].toUpperCase() : '?'),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(user.getStringValue('username'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('${user.getIntValue('score')} Points', style: TextStyle(color: cs.textMuted, fontSize: 12)),
+                      ]),
+                    ])
+                  : const SizedBox(),
+              Row(children: [
+                IconButton(
+                  icon: Icon(Icons.person, size: 20, color: cs.textMuted),
+                  onPressed: () {
+                    if (user != null) {
+                      widget.game.showScreen('Profile');
+                    } else {
+                      widget.game.showScreen('Auth');
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: Icon(Icons.settings, size: 20, color: cs.textMuted),
+                  onPressed: () {
+                    widget.game.showScreen('Settings');
+                  },
+                ),
+              ])
+            ],
+          ),
+          const Divider(height: 32),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [cs.primaryContainer, cs.surface2],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '🪓 HANGMAN',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text('Choose your mode and start playing', style: TextStyle(color: cs.textMuted)),
+              ],
+            ),
+          ),
+          Text(
+            mode,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.primary),
+          ),
+          const SizedBox(height: 12),
+          PrimaryButton(
+            label: 'PLAY 1 PLAYER',
+            height: 56,
+            onPressed: () {
+              widget.game.showScreen('Levels');
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildModeSelector(),
+          const SizedBox(height: 12),
+          _buildContextInputs(),
+          const SizedBox(height: 20),
+          PrimaryButton(
+            label: 'START GAME',
+            onPressed: _onStartPressed,
+            height: 56,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: _showLeaderboard,
+            icon: const Icon(Icons.emoji_events),
+            label: const Text('LEADERBOARD'),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    widget.game.showScreen('Levels');
+                  },
+                  icon: const Icon(Icons.grid_view),
+                  label: const Text('LEVELS'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    widget.game.showScreen('Collectibles');
+                  },
+                  icon: const Icon(Icons.star_border),
+                  label: const Text('COLLECTIBLES'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
