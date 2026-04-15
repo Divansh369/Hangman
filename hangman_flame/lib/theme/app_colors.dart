@@ -10,6 +10,24 @@ extension AppColorTokens on ColorScheme {
   Color get textMuted => onSurfaceVariant;
 
   Color get letterNeutral => primaryContainer;
-  Color get letterCorrect => Colors.green.shade600;
-  Color get letterWrong => Colors.red.shade600;
+  Color get letterCorrect => brightness == Brightness.dark ? Colors.green.shade400 : Colors.green.shade600;
+  Color get letterWrong => brightness == Brightness.dark ? Colors.red.shade400 : Colors.red.shade600;
+
+  // Chat-specific colors with theme support
+  Color get chatBubbleOwn => primary;
+  Color get chatBubbleOther => surfaceContainerHighest;
+  Color get chatBubbleTextOwn => onPrimary;
+  Color get chatBubbleTextOther => onSurface;
+  Color get chatHeaderBackground => surfaceContainerHigh;
+  Color get chatHeaderText => onSurface;
+  Color get chatSystemMessageText => onSurfaceVariant;
+
+  // Status colors with theme support
+  Color get statusSuccess => brightness == Brightness.dark ? Colors.green.shade400 : Colors.green.shade600;
+  Color get statusError => brightness == Brightness.dark ? Colors.red.shade400 : Colors.red.shade600;
+  Color get statusWarning => brightness == Brightness.dark ? Colors.amber.shade400 : Colors.amber.shade600;
+
+  // Badge colors
+  Color get badgeBackground => tertiaryContainer;
+  Color get badgeText => onTertiaryContainer;
 }

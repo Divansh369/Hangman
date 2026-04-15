@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/theme_service.dart';
 import '../hangman_game.dart';
 import '../widgets/ui_widgets.dart';
 import '../../data/words.dart';
@@ -68,6 +69,17 @@ class _NavBarState extends State<NavBar> {
                 setState(() => _selected = 6);
                 widget.game.showScreen('Settings');
               }),
+              ValueListenableBuilder<ThemeMode>(
+                valueListenable: ThemeService().themeMode,
+                builder: (context, mode, _) {
+                  final isDark = mode == ThemeMode.dark || 
+                    (mode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark);
+                  return _navItem(7, isDark ? Icons.light_mode : Icons.dark_mode, 'Theme', () {
+                    setState(() => _selected = 7);
+                    ThemeService().toggle();
+                  });
+                },
+              ),
             ],
           ),
         ),

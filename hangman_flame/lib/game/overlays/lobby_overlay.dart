@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../hangman_game.dart';
 import '../../services/game_service.dart';
 import '../../services/auth_service.dart';
+import '../../utils/responsive_utils.dart';
 import 'dart:async';
 import '../widgets/ui_widgets.dart';
 import '../../theme/app_colors.dart';
@@ -178,9 +179,10 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final width = context.isMobile ? (MediaQuery.of(context).size.width - 48.0) : 500.0;
     return Center(
       child: CardSurface(
-        width: 350,
+        width: width,
         padding: const EdgeInsets.all(24),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),

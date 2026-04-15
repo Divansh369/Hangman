@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/progress_service.dart';
 import '../widgets/ui_widgets.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/responsive_utils.dart';
 
 class MainMenu extends StatefulWidget {
   final HangmanGame game;
@@ -452,9 +453,11 @@ class _MainMenuState extends State<MainMenu> {
   Widget build(BuildContext context) {
     final user = AuthService().currentUser;
     final cs = Theme.of(context).colorScheme;
+    // Responsive width: 380 on mobile, scale up to 500 on larger screens
+    final width = context.isMobile ? 380.0 : (context.isTablet ? 420.0 : 500.0);
 
     return OverlayScaffold(
-      width: 380,
+      width: width,
       padding: const EdgeInsets.all(20),
       child: SingleChildScrollView(
         child: Column(

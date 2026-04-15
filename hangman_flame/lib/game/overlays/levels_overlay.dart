@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../hangman_game.dart';
 import '../../services/progress_service.dart';
 import '../../data/levels.dart';
+import '../../theme/app_colors.dart';
 import '../widgets/ui_widgets.dart';
+import '../../utils/responsive_utils.dart';
 
 class LevelsOverlay extends StatefulWidget {
   final HangmanGame game;
@@ -18,8 +20,9 @@ class _LevelsOverlayState extends State<LevelsOverlay> {
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
+    final width = context.isMobile ? 380.0 : (context.isTablet ? 450.0 : 550.0);
     return OverlayScaffold(
-      width: 420,
+      width: width,
       padding: const EdgeInsets.all(20),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('Levels', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -89,15 +92,16 @@ class _LevelsOverlayState extends State<LevelsOverlay> {
                   final id = lvl['id']!;
                   final bool isCompleted = completed.contains(id);
                   final bool isUnlocked = i == 0 || completed.contains(gameLevels[i - 1]['id']);
+                  final cs = Theme.of(context).colorScheme;
 
                   return ListTile(
                     leading: isCompleted
-                        ? const Icon(Icons.check_circle, color: Colors.green)
-                        : (isUnlocked ? const Icon(Icons.checklist_rtl, color: Colors.blue) : const Icon(Icons.lock, color: Colors.grey)),
+                        ? Icon(Icons.check_circle, color: cs.statusSuccess)
+                        : (isUnlocked ? Icon(Icons.checklist_rtl, color: cs.primary) : Icon(Icons.lock, color: cs.textMuted)),
                     title: Text('${lvl['title']} • ${lvl['category']}'),
                     subtitle: Text(lvl['description'] ?? ''),
                     trailing: isCompleted
-                        ? const Text('Completed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))
+                        ? Text('Completed', style: TextStyle(color: cs.statusSuccess, fontWeight: FontWeight.bold))
                         : (isUnlocked
                             ? PrimaryButton(
                                 label: 'Play',
@@ -107,7 +111,7 @@ class _LevelsOverlayState extends State<LevelsOverlay> {
                                   game.startGame(lvl['category']!, levelId: id);
                                 },
                               )
-                            : const Text('Locked', style: TextStyle(color: Colors.grey))),
+                            : Text('Locked', style: TextStyle(color: cs.textMuted))),
                     onTap: isUnlocked
                         ? () {
                             game.startGame(lvl['category']!, levelId: id);

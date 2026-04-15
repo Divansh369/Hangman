@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/progress_service.dart';
+import '../../theme/app_colors.dart';
+import '../../utils/responsive_utils.dart';
 import '../hangman_game.dart';
 import '../widgets/ui_widgets.dart';
 
@@ -11,9 +13,11 @@ class ProfileOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthService().currentUser;
+    final cs = Theme.of(context).colorScheme;
+    final width = context.isMobile ? 360.0 : (context.isTablet ? 420.0 : 480.0);
 
     return OverlayScaffold(
-      width: 360,
+      width: width,
       padding: const EdgeInsets.all(20),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('Profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -23,13 +27,13 @@ class ProfileOverlay extends StatelessWidget {
             final uname = user.getStringValue('username');
             final initial = uname.isNotEmpty ? uname[0].toUpperCase() : '?';
             return Column(children: [
-              CircleAvatar(radius: 28, backgroundColor: Colors.blue[100], child: Text(initial)),
+              CircleAvatar(radius: 28, backgroundColor: cs.primaryContainer, child: Text(initial)),
               const SizedBox(height: 8),
               Text(uname.isNotEmpty ? uname : 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
             ]);
           }),
           const SizedBox(height: 8),
-          Text('${user.getIntValue('score')} Points', style: const TextStyle(color: Colors.grey)),
+          Text('${user.getIntValue('score')} Points', style: TextStyle(color: cs.textMuted)),
           const SizedBox(height: 12),
           FutureBuilder<Map<String, dynamic>?>(
             future: ProgressService().getProgress(),

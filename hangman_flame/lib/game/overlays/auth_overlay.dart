@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../utils/responsive_utils.dart';
 import '../widgets/ui_widgets.dart';
 
 class AuthOverlay extends StatefulWidget {
@@ -56,8 +57,9 @@ class _AuthOverlayState extends State<AuthOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final width = context.isMobile ? 360.0 : (context.isTablet ? 420.0 : 480.0);
     return OverlayScaffold(
-      width: 360,
+      width: width,
       padding: const EdgeInsets.all(20),
       child: AnimatedSize(
         duration: const Duration(milliseconds: 280),

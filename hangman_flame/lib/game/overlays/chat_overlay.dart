@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
 import '../../services/game_service.dart';
 import '../../services/auth_service.dart';
+import '../../theme/app_colors.dart';
+import '../../utils/responsive_utils.dart';
 import '../hangman_game.dart';
 import 'dart:async';
 
@@ -68,23 +70,26 @@ class _ChatOverlayState extends State<ChatOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    // Chat width: responsive, max 300 on mobile, 350 on tablet+
+    final width = context.isMobile ? 280.0 : 350.0;
     return Container(
-      width: 300,
+      width: width,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(left: BorderSide(color: Colors.grey[200]!)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        color: cs.surface,
+        border: Border(left: BorderSide(color: cs.outlineVariant)),
+        boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.1), blurRadius: 10)],
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            color: Colors.blue[50],
-            child: const Row(
+            color: cs.chatHeaderBackground,
+            child: Row(
               children: [
-                Icon(Icons.chat_bubble_outline, size: 20, color: Colors.blue),
-                SizedBox(width: 8),
-                Text('GAME CHAT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.blue)),
+                Icon(Icons.chat_bubble_outline, size: 20, color: cs.primary),
+                const SizedBox(width: 8),
+                Text('GAME CHAT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: cs.chatHeaderText)),
               ],
             ),
           ),
@@ -105,7 +110,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: Text(
                         msg.getStringValue('text'),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                        style: TextStyle(fontSize: 12, color: cs.chatSystemMessageText, fontStyle: FontStyle.italic),
                       ),
                     ),
                   );
@@ -118,7 +123,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
                     decoration: BoxDecoration(
-                      color: isMe ? Colors.blue : Colors.grey[100],
+                      color: isMe ? cs.chatBubbleOwn : cs.chatBubbleOther,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(12),
                         topRight: const Radius.circular(12),
@@ -128,7 +133,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                     ),
                     child: Text(
                       msg.getStringValue('text'),
-                      style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+                      style: TextStyle(color: isMe ? cs.chatBubbleTextOwn : cs.chatBubbleTextOther),
                     ),
                   ),
                 );
@@ -146,7 +151,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      fillColor: cs.surfaceContainerLow,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
@@ -157,7 +162,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
                 IconButton.filled(
                   onPressed: _send,
                   icon: const Icon(Icons.send, size: 20),
-                  style: IconButton.styleFrom(backgroundColor: Colors.blue),
+                  style: IconButton.styleFrom(backgroundColor: cs.primary),
                 ),
               ],
             ),

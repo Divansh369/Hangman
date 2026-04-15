@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../hangman_game.dart';
 import '../../services/sfx_service.dart';
+import '../../utils/responsive_utils.dart';
 
 class UnlockOverlay extends StatefulWidget {
   final HangmanGame game;
@@ -64,7 +65,7 @@ class _UnlockOverlayState extends State<UnlockOverlay> with SingleTickerProvider
         ScaleTransition(
           scale: _scale,
           child: Container(
-            width: 320,
+            width: context.isMobile ? 300.0 : 360.0,
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,

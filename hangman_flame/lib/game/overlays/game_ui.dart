@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/responsive_utils.dart';
 import '../hangman_game.dart';
 import '../widgets/key_button.dart';
 import '../widgets/letter_tile.dart';
@@ -119,10 +120,11 @@ class _GameUIState extends State<GameUI> with SingleTickerProviderStateMixin {
   Widget _buildWordEntryScreen() {
     final cs = Theme.of(context).colorScheme;
     final isMyTurnToSet = widget.game.currentTurnId == AuthService().currentUser?.id;
+    final width = context.isMobile ? (MediaQuery.of(context).size.width - 48.0) : 400.0;
 
     return Center(
       child: CardSurface(
-        width: 350,
+        width: width,
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -390,7 +392,7 @@ class _GameUIState extends State<GameUI> with SingleTickerProviderStateMixin {
                                       ),
                                       child: Text(
                                         lastGain > 0 ? '+$lastGain' : '$lastGain',
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                        style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.bold, fontSize: 12),
                                       ),
                                     ),
                                   ),

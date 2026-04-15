@@ -40,6 +40,9 @@ dependencies:
   shared_preferences: ^2.5.5
   flutter_svg: ^1.1.4
   google_fonts: ^6.3.2
+  # State management
+  riverpod: ^2.6.0
+  flutter_riverpod: ^2.6.0
 
 dev_dependencies:
   flutter_test:

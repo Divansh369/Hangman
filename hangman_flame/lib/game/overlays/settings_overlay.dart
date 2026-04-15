@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/theme_service.dart';
+import '../../utils/responsive_utils.dart';
 import '../hangman_game.dart';
 import '../widgets/ui_widgets.dart';
 import '../../services/sfx_service.dart';
@@ -10,8 +11,9 @@ class SettingsOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = context.isMobile ? 360.0 : (context.isTablet ? 420.0 : 480.0);
     return OverlayScaffold(
-      width: 360,
+      width: width,
       padding: const EdgeInsets.all(20),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('Settings', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../hangman_game.dart';
 import '../../services/progress_service.dart';
+import '../../utils/responsive_utils.dart';
 import '../widgets/ui_widgets.dart';
 
 class CollectiblesOverlay extends StatelessWidget {
@@ -23,8 +24,9 @@ class CollectiblesOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = context.isMobile ? 380.0 : (context.isTablet ? 450.0 : 550.0);
     return OverlayScaffold(
-      width: 420,
+      width: width,
       padding: const EdgeInsets.all(20),
       child: SizedBox(
         height: 360,
