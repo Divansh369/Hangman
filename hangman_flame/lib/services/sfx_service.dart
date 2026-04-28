@@ -65,7 +65,7 @@ class SfxService {
       return;
     }
     if (_flameReady) {
-      FlameAudio.play('audio/unlock.mp3');
+      FlameAudio.play('audio/unlock.mp3', volume: volume.value);
       return;
     }
     SystemSound.play(SystemSoundType.alert);

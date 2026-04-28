@@ -30,9 +30,18 @@ class AuthService {
           if (userId != null) {
             try {
               pb.authStore.save(token, RecordModel({'id': userId}));
-              // Try refreshing the full user record from server; ignore errors.
-              final full = await pb.collection('users').getOne(userId);
-              pb.authStore.save(token, full);
+              // Try refreshing auth token and user record from server.
+              try {
+                await pb.collection('users').authRefresh();
+              } catch (_) {
+                // Token may have expired; try fetching the record directly.
+                try {
+                  final full = await pb.collection('users').getOne(userId);
+                  pb.authStore.save(token, full);
+                } catch (e) {
+                  debugPrint('AuthService: failed to refresh user record: $e');
+                }
+              }
               } catch (e) {
               debugPrint('AuthService: failed to refresh user record: $e');
             }

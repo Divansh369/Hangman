@@ -5,8 +5,8 @@ void main() {
   group('Responsive UI Tests', () {
     testWidgets('Mobile layout detected correctly on small screen',
         (WidgetTester tester) async {
-      tester.binding.window.physicalSizeTestValue = const Size(400, 800);
-      addTearDown(tester.binding.window.clearPhysicalSizeTestValue);
+      tester.view.physicalSize = const Size(400, 800);
+      addTearDown(tester.view.resetPhysicalSize);
 
       expect(isMobileSize(400), isTrue);
       expect(isMobileSize(500), isFalse);
@@ -14,8 +14,8 @@ void main() {
 
     testWidgets('Tablet layout detected correctly on medium screen',
         (WidgetTester tester) async {
-      tester.binding.window.physicalSizeTestValue = const Size(800, 1024);
-      addTearDown(tester.binding.window.clearPhysicalSizeTestValue);
+      tester.view.physicalSize = const Size(800, 1024);
+      addTearDown(tester.view.resetPhysicalSize);
 
       expect(isTabletSize(800), isTrue);
       expect(isTabletSize(400), isFalse);
@@ -23,8 +23,8 @@ void main() {
 
     testWidgets('Desktop layout detected correctly on large screen',
         (WidgetTester tester) async {
-      tester.binding.window.physicalSizeTestValue = const Size(1400, 900);
-      addTearDown(tester.binding.window.clearPhysicalSizeTestValue);
+      tester.view.physicalSize = const Size(1400, 900);
+      addTearDown(tester.view.resetPhysicalSize);
 
       expect(isDesktopSize(1400), isTrue);
     });
@@ -57,29 +57,26 @@ void main() {
     });
 
     testWidgets('Theme toggle updates UI', (WidgetTester tester) async {
-      var isDarkMode = false;
-
       await tester.pumpWidget(
         MaterialApp(
           theme: _buildLightTheme(),
           darkTheme: _buildDarkTheme(),
-          themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          home: Scaffold(
-            body: Text('Theme: ${isDarkMode ? "Dark" : "Light"}'),
+          themeMode: ThemeMode.light,
+          home: const Scaffold(
+            body: Text('Theme: Light'),
           ),
         ),
       );
 
       expect(find.text('Theme: Light'), findsOneWidget);
 
-      isDarkMode = true;
       await tester.pumpWidget(
         MaterialApp(
           theme: _buildLightTheme(),
           darkTheme: _buildDarkTheme(),
-          themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          home: Scaffold(
-            body: Text('Theme: ${isDarkMode ? "Dark" : "Light"}'),
+          themeMode: ThemeMode.dark,
+          home: const Scaffold(
+            body: Text('Theme: Dark'),
           ),
         ),
       );
@@ -163,8 +160,6 @@ void main() {
 
     testWidgets('Disabled button cannot be tapped',
         (WidgetTester tester) async {
-      bool tapped = false;
-
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

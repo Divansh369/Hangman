@@ -179,13 +179,13 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final width = context.isMobile ? (MediaQuery.of(context).size.width - 48.0) : 500.0;
+    final width = context.isMobile ? (MediaQuery.of(context).size.width - 48.0) : 520.0;
     return Center(
       child: CardSurface(
         width: width,
         padding: const EdgeInsets.all(24),
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 260),
+          duration: const Duration(milliseconds: 300),
           child: _currentRoom == null ? _buildJoinCreate() : _buildWaitingRoom(),
         ),
       ),
@@ -197,22 +197,27 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Multiplayer Arena', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
+        GlowBadge(icon: Icons.sports_esports_rounded, color: cs.primary, size: 48),
+        const SizedBox(height: 12),
+        Text('Multiplayer Arena', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.textPrimary)),
+        const SizedBox(height: 4),
+        Text('Challenge a friend in real-time', style: TextStyle(fontSize: 13, color: cs.textMuted)),
+        const SizedBox(height: 16),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: cs.surface2,
-            borderRadius: BorderRadius.circular(12),
+            color: cs.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
-              Icon(Icons.flash_on, color: cs.primary),
-              const SizedBox(width: 8),
+              Icon(Icons.flash_on_rounded, color: cs.primary, size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Ranked-style pressure: live turns, forced timeout misses, and rematch loops.',
+                  'Live turns, forced timeout misses, and rematch loops.',
                   style: TextStyle(color: cs.textPrimary, fontSize: 12),
                 ),
               ),
@@ -220,17 +225,49 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
           ),
         ),
         const SizedBox(height: 20),
-        SecondaryButton(label: 'Quick Match', onPressed: _isLoading ? null : _quickMatch),
+        Row(children: [
+          Expanded(child: PrimaryButton(label: 'Create Room', icon: Icons.add_circle_outline, onPressed: _isLoading ? null : _createRoom)),
+          const SizedBox(width: 10),
+          Expanded(child: SecondaryButton(label: 'Quick Match', onPressed: _isLoading ? null : _quickMatch)),
+        ]),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: Divider(color: cs.glassBorder)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text('or join', style: TextStyle(fontSize: 12, color: cs.textMuted)),
+          ),
+          Expanded(child: Divider(color: cs.glassBorder)),
+        ]),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: cs.glassBackground,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.glassBorder),
+          ),
+          child: TextField(
+            controller: _codeController,
+            style: TextStyle(color: cs.textPrimary, fontWeight: FontWeight.w700, fontSize: 18, letterSpacing: 4),
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              hintText: 'ROOM CODE',
+              hintStyle: TextStyle(color: cs.textMuted.withValues(alpha: 0.4), letterSpacing: 4),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: PrimaryButton(label: 'Join Room', icon: Icons.login_rounded, onPressed: _isLoading ? null : _joinRoom),
+        ),
         const SizedBox(height: 10),
-        PrimaryButton(label: 'Create Room', onPressed: _isLoading ? null : _createRoom),
-        const SizedBox(height: 10),
-        const Text('OR'),
-        const SizedBox(height: 10),
-        TextField(controller: _codeController, decoration: const InputDecoration(labelText: 'Enter Room Code')),
-        const SizedBox(height: 10),
-        PrimaryButton(label: 'Join Room', onPressed: _isLoading ? null : _joinRoom),
-        const SizedBox(height: 10),
-        TextButton(onPressed: widget.game.showMainMenu, child: const Text('Back to Home')),
+        TextButton(
+          onPressed: widget.game.showMainMenu,
+          child: Text('Back to Home', style: TextStyle(color: cs.textMuted)),
+        ),
       ],
     );
   }
@@ -243,61 +280,110 @@ class _LobbyOverlayState extends State<LobbyOverlay> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Waiting for Opponent', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Room Code: $code', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: cs.primary)),
-            IconButton(
-              tooltip: 'Copy Code',
-              icon: Icon(Icons.copy_rounded, size: 20, color: cs.primary),
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: code));
-                if (!mounted) {
-                  return;
-                }
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied')));
-              },
-            ),
-          ],
+        GlowBadge(
+          icon: opponent.isEmpty ? Icons.hourglass_top_rounded : Icons.check_circle_rounded,
+          color: opponent.isEmpty ? Colors.amber : cs.letterCorrect,
+          size: 48,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+        Text(
+          opponent.isEmpty ? 'Waiting for Opponent' : 'Opponent Joined!',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.textPrimary),
+        ),
+        const SizedBox(height: 16),
+        // Room code display
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cs.glassBackground,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+          ),
+          child: Column(children: [
+            Text('Room Code', style: TextStyle(fontSize: 11, color: cs.textMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(code, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: cs.primary, letterSpacing: 6)),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Copy Code',
+                  icon: Icon(Icons.copy_rounded, size: 18, color: cs.primary),
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: code));
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied')));
+                  },
+                ),
+              ],
+            ),
+          ]),
+        ),
+        const SizedBox(height: 16),
         if (opponent.isEmpty)
-          Column(
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 10),
-              Text('Share code and get ready for a tense duel.', style: TextStyle(color: cs.textMuted)),
-            ],
-          )
+          Column(children: [
+            SizedBox(
+              width: 28, height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.primary),
+            ),
+            const SizedBox(height: 10),
+            Text('Share the code and wait...', style: TextStyle(color: cs.textMuted, fontSize: 13)),
+          ])
         else ...[
-          Text('Opponent Joined! Arena locked.', style: TextStyle(color: cs.letterCorrect, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.letterCorrect.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.letterCorrect.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_rounded, size: 18, color: cs.letterCorrect),
+                const SizedBox(width: 8),
+                Text('Arena locked. Ready to battle!', style: TextStyle(color: cs.letterCorrect, fontWeight: FontWeight.w700, fontSize: 13)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           if (_currentRoom?.getStringValue('host') == AuthService().currentUser?.id)
-            PrimaryButton(
-              label: 'Start Match',
-              onPressed: () => widget.game.startGame('Multiplayer', 
-                roomId: _currentRoom!.id, 
-                multiplayer: true, 
-                host: true,
-                hId: _currentRoom!.getStringValue('host'),
-                oId: _currentRoom!.getStringValue('opponent'),
+            SizedBox(
+              width: double.infinity,
+              child: PrimaryButton(
+                label: 'Start Match',
+                icon: Icons.play_arrow_rounded,
+                onPressed: () => widget.game.startGame('Multiplayer', 
+                  roomId: _currentRoom!.id, 
+                  multiplayer: true, 
+                  host: true,
+                  hId: _currentRoom!.getStringValue('host'),
+                  oId: _currentRoom!.getStringValue('opponent'),
+                ),
               ),
-              height: 52,
             ),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: TextButton(onPressed: _resyncRoom, child: const Text('Reconnect')),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: TextButton.icon(
+              onPressed: _resyncRoom,
+              icon: Icon(Icons.refresh_rounded, size: 16, color: cs.textMuted),
+              label: Text('Reconnect', style: TextStyle(color: cs.textMuted)),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextButton(onPressed: _leaveRoomAndClose, child: const Text('Quit')),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextButton.icon(
+              onPressed: _leaveRoomAndClose,
+              icon: Icon(Icons.exit_to_app_rounded, size: 16, color: cs.error),
+              label: Text('Quit', style: TextStyle(color: cs.error)),
             ),
-          ],
-        ),
+          ),
+        ]),
       ],
     );
   }

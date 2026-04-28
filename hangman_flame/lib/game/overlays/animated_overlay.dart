@@ -9,9 +9,9 @@ class AnimatedOverlay extends StatefulWidget {
   const AnimatedOverlay({
     super.key,
     required this.child,
-    this.duration = const Duration(milliseconds: 360),
-    this.curve = Curves.easeOut,
-    this.beginOffset = const Offset(0, 0.06),
+    this.duration = const Duration(milliseconds: 450),
+    this.curve = Curves.easeOutCubic,
+    this.beginOffset = const Offset(0, 0.04),
   });
 
   @override
@@ -22,13 +22,16 @@ class _AnimatedOverlayState extends State<AnimatedOverlay> with SingleTickerProv
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
+  late final Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: widget.duration);
-    _fade = CurvedAnimation(parent: _ctrl, curve: widget.curve);
-    _slide = Tween<Offset>(begin: widget.beginOffset, end: Offset.zero).animate(_fade);
+    final curved = CurvedAnimation(parent: _ctrl, curve: widget.curve);
+    _fade = curved;
+    _slide = Tween<Offset>(begin: widget.beginOffset, end: Offset.zero).animate(curved);
+    _scale = Tween<double>(begin: 0.97, end: 1.0).animate(curved);
     _ctrl.forward();
   }
 
@@ -42,7 +45,13 @@ class _AnimatedOverlayState extends State<AnimatedOverlay> with SingleTickerProv
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _fade,
-      child: SlideTransition(position: _slide, child: widget.child),
+      child: SlideTransition(
+        position: _slide,
+        child: ScaleTransition(
+          scale: _scale,
+          child: widget.child,
+        ),
+      ),
     );
   }
 }

@@ -165,7 +165,10 @@ class ProgressService {
       currentStreak = 1;
     } else {
       final lastPlayDate = DateTime.parse(lastPlayDateStr);
-      final daysDiff = now.difference(lastPlayDate).inDays;
+      // Use calendar day comparison, not duration
+      final today = DateTime(now.year, now.month, now.day);
+      final lastDay = DateTime(lastPlayDate.year, lastPlayDate.month, lastPlayDate.day);
+      final daysDiff = today.difference(lastDay).inDays;
       
       if (daysDiff == 0) {
         // Same day, don't increment

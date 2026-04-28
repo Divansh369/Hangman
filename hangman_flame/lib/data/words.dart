@@ -61,7 +61,7 @@ final Map<String, Map<String, List<String>>> themes = {
   },
   'Desert Mysteries': {
     'Desert Animals': ['camel', 'scorpion', 'meerkat', 'jackal'],
-    'Desert Features': ['dune', 'oasis', 'mirage', 'wadge'],
+    'Desert Features': ['dune', 'oasis', 'mirage', 'wadi'],
     'Desert Survival': ['cactus', 'sandstorm', 'drought', 'nomad'],
   },
   'Mountain Peaks': {
@@ -72,7 +72,7 @@ final Map<String, Map<String, List<String>>> themes = {
   'Tropical Paradise': {
     'Tropical Fruits': ['mango', 'pineapple', 'coconut', 'papaya'],
     'Tropical Trees': ['palm', 'bamboo', 'teak', 'mahogany'],
-    'Tropical Weather': ['monsoon', 'humidity', 'rainforest', 'humidity'],
+    'Tropical Weather': ['monsoon', 'humidity', 'rainforest', 'typhoon'],
   },
   'Night Sky Magic': {
     'Constellations': ['orion', 'ursa', 'perseus', 'draco'],
@@ -312,6 +312,37 @@ final Map<String, List<String>> categories = {
   'Programming': [
     'flutter', 'dart', 'python', 'javascript', 'rust', 'kotlin', 'swift', 'java', 'ruby', 'golang',
     'cplusplus', 'csharp', 'php', 'typescript', 'scala', 'perl', 'haskell', 'clojure', 'groovy', 'solidity'
+  ],
+  'Planets': [
+    'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'kepler',
+    'proxima', 'sirius', 'betelgeuse', 'altair', 'vega', 'deneb', 'arcturus', 'polaris', 'rigel'
+  ],
+  'Sports': [
+    'football', 'basketball', 'cricket', 'tennis', 'baseball', 'hockey', 'volleyball', 'rugby', 'boxing', 'golf',
+    'swimming', 'skiing', 'skating', 'badminton', 'archery', 'gymnastics', 'wrestling', 'sumo', 'curling'
+  ],
+  'Colors': [
+    'red', 'blue', 'green', 'yellow', 'brown', 'purple', 'pink', 'black', 'white', 'gray',
+    'silver', 'gold', 'olive', 'navy', 'turquoise', 'khaki', 'indigo', 'violet', 'maroon', 'crimson'
+  ],
+  'Movies': [
+    'inception', 'gladiator', 'titanic', 'avatar', 'matrix', 'jaws', 'psycho', 'vertigo', 'casablanca', 'frozen',
+    'interstellar', 'dune', 'oppenheimer', 'goodfellas', 'godfather'
+  ],
+  'Scientists': [
+    'einstein', 'newton', 'darwin', 'curie', 'galileo', 'hawking', 'tesla', 'edison', 'pasteur', 'lovelace',
+    'bohr', 'mendel', 'feynman', 'planck', 'heisenberg', 'dirac', 'born', 'boltzmann', 'rumford'
+  ],
+  'Months': [
+    'january', 'february', 'march', 'april', 'may', 'june',
+    'july', 'august', 'september', 'october', 'november', 'december'
+  ],
+  'Weekdays': [
+    'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+  ],
+  'Cities': [
+    'london', 'paris', 'tokyo', 'newyork', 'berlin', 'sydney', 'mumbai', 'dubai', 'cairo', 'moscow',
+    'beijing', 'rome', 'bangkok', 'barcelona', 'amsterdam', 'istanbul', 'lasvegas', 'toronto', 'singapore', 'hongkong'
   ],
 };
 

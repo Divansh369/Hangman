@@ -21,9 +21,12 @@ class GameService {
   }
 
   Future<RecordModel?> joinRoom(String code) async {
+    // Sanitize input: room codes are alphanumeric only
+    final sanitized = code.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    if (sanitized.isEmpty || sanitized.length > 10) return null;
     try {
       final rooms = await pb.collection('rooms').getList(
-        filter: 'code = "$code" && status = "waiting"',
+        filter: 'code = "$sanitized" && status = "waiting"',
       );
 
       if (rooms.items.isNotEmpty) {
@@ -74,8 +77,8 @@ class GameService {
 
   Stream<RecordModel> subscribeToChat(String roomId) {
     final controller = StreamController<RecordModel>();
-    pb.collection('messages').subscribe('*', (e) {
-      if (e.record != null && e.record!.getStringValue('room') == roomId) {
+    pb.collection('messages').subscribe(roomId, (e) {
+      if (e.record != null) {
         controller.add(e.record!);
       }
     }).then((unsubscribe) {

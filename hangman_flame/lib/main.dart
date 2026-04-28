@@ -13,6 +13,7 @@ import 'game/overlays/levels_overlay.dart';
 import 'game/overlays/collectibles_overlay.dart';
 import 'game/overlays/unlock_overlay.dart';
 import 'game/overlays/animated_overlay.dart';
+import 'game/overlays/chat_overlay.dart';
 import 'services/auth_service.dart';
 import 'services/theme_service.dart';
 import 'services/sfx_service.dart';
@@ -96,6 +97,7 @@ class _GamePageState extends State<GamePage> {
           'Levels': (context, game) => AnimatedOverlay(child: LevelsOverlay(game: game)),
           'Collectibles': (context, game) => AnimatedOverlay(child: CollectiblesOverlay(game: game)),
           'Unlock': (context, game) => AnimatedOverlay(child: UnlockOverlay(game: game)),
+          'Chat': (context, game) => AnimatedOverlay(child: ChatOverlay(game: game)),
           'NavBar': (context, game) => AnimatedOverlay(child: NavBar(game: game)),
         },
         initialActiveOverlays: const ['MainMenu','NavBar'],

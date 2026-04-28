@@ -20,6 +20,8 @@ class HangmanGame extends FlameGame {
     'Levels',
     'Collectibles',
     'GameUI',
+    'Unlock',
+    'Chat',
   ];
 
   late String secretWord;
@@ -100,13 +102,14 @@ class HangmanGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+    add(AmbientParticles()..size = Vector2(size.x, size.y));
     add(HangmanVisual()
       ..position = Vector2(size.x / 2 - 100, 50)
       ..size = Vector2(200, 250));
   }
 
   @override
-  Color backgroundColor() => Colors.white;
+  Color backgroundColor() => const Color(0xFF0F0F23);
 
   bool hasAwardedPoints = false;
 
@@ -673,6 +676,7 @@ class HangmanGame extends FlameGame {
     didWin = false;
     hasForfeited = true;
     _afkTimer?.cancel();
+    _recordGameStats(won: false);
     overlays.add('GameOver');
     _updateNotifiers();
   }
@@ -686,6 +690,7 @@ class HangmanGame extends FlameGame {
     _roundTimer?.cancel();
     _stopMultiplayerTurnTimer();
     
+    _recordGameStats(won: false);
     overlays.add('GameOver');
     _updateNotifiers();
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:pocketbase/pocketbase.dart';
 import '../../services/game_service.dart';
 import '../../services/auth_service.dart';
@@ -27,9 +28,7 @@ class _ChatOverlayState extends State<ChatOverlay> {
     super.initState();
     if (widget.game.currentRoomId != null) {
       _chatSubscription = _gameService.subscribeToChat(widget.game.currentRoomId!).listen((msg) {
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
         setState(() => _messages.add(msg));
         _scrollToBottom();
       });
@@ -71,103 +70,169 @@ class _ChatOverlayState extends State<ChatOverlay> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // Chat width: responsive, max 300 on mobile, 350 on tablet+
     final width = context.isMobile ? 280.0 : 350.0;
-    return Container(
-      width: width,
-      decoration: BoxDecoration(
-        color: cs.surface,
-        border: Border(left: BorderSide(color: cs.outlineVariant)),
-        boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.1), blurRadius: 10)],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            color: cs.chatHeaderBackground,
-            child: Row(
-              children: [
-                Icon(Icons.chat_bubble_outline, size: 20, color: cs.primary),
-                const SizedBox(width: 8),
-                Text('GAME CHAT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: cs.chatHeaderText)),
-              ],
-            ),
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          width: width,
+          decoration: BoxDecoration(
+            color: cs.glassBackground,
+            border: Border(left: BorderSide(color: cs.glassBorder)),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20)],
           ),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: _messages.length,
-              itemBuilder: (context, i) {
-                final msg = _messages[i];
-                final userId = msg.getStringValue('user');
-                final bool isMe = userId == AuthService().currentUser?.id;
-                final bool isSystem = userId.isEmpty;
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: cs.glassBorder)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.chat_bubble_outline, size: 16, color: cs.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('GAME CHAT', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.5, color: cs.textPrimary, fontSize: 13)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: cs.letterCorrect.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('LIVE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: cs.letterCorrect)),
+                    ),
+                  ],
+                ),
+              ),
+              // Messages
+              Expanded(
+                child: _messages.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.forum_outlined, size: 36, color: cs.textMuted.withValues(alpha: 0.3)),
+                            const SizedBox(height: 8),
+                            Text('No messages yet', style: TextStyle(color: cs.textMuted.withValues(alpha: 0.5), fontSize: 13)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, i) {
+                          final msg = _messages[i];
+                          final userId = msg.getStringValue('user');
+                          final bool isMe = userId == AuthService().currentUser?.id;
+                          final bool isSystem = userId.isEmpty;
 
-                if (isSystem) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text(
-                        msg.getStringValue('text'),
-                        style: TextStyle(fontSize: 12, color: cs.chatSystemMessageText, fontStyle: FontStyle.italic),
+                          if (isSystem) {
+                            return Center(
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: cs.glassHighlight,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  msg.getStringValue('text'),
+                                  style: TextStyle(fontSize: 11, color: cs.textMuted, fontStyle: FontStyle.italic),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return Align(
+                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 3),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              constraints: BoxConstraints(maxWidth: width * 0.75),
+                              decoration: BoxDecoration(
+                                gradient: isMe
+                                    ? LinearGradient(colors: cs.primaryGradient)
+                                    : null,
+                                color: isMe ? null : cs.glassHighlight,
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(14),
+                                  topRight: const Radius.circular(14),
+                                  bottomLeft: Radius.circular(isMe ? 14 : 4),
+                                  bottomRight: Radius.circular(isMe ? 4 : 14),
+                                ),
+                              ),
+                              child: Text(
+                                msg.getStringValue('text'),
+                                style: TextStyle(
+                                  color: isMe ? Colors.white : cs.textPrimary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              // Input
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: cs.glassBorder)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cs.glassHighlight,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          onSubmitted: (_) => _send(),
+                          style: TextStyle(color: cs.textPrimary, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'Type a message...',
+                            hintStyle: TextStyle(color: cs.textMuted.withValues(alpha: 0.5)),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            border: InputBorder.none,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                }
-
-                return Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
-                    decoration: BoxDecoration(
-                      color: isMe ? cs.chatBubbleOwn : cs.chatBubbleOther,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft: Radius.circular(isMe ? 12 : 0),
-                        bottomRight: Radius.circular(isMe ? 0 : 12),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: cs.primaryGradient),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: cs.primaryGlow, blurRadius: 8)],
+                      ),
+                      child: IconButton(
+                        onPressed: _send,
+                        icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                        padding: EdgeInsets.zero,
                       ),
                     ),
-                    child: Text(
-                      msg.getStringValue('text'),
-                      style: TextStyle(color: isMe ? cs.chatBubbleTextOwn : cs.chatBubbleTextOther),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    onSubmitted: (_) => _send(),
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      filled: true,
-                      fillColor: cs.surfaceContainerLow,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                    ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: _send,
-                  icon: const Icon(Icons.send, size: 20),
-                  style: IconButton.styleFrom(backgroundColor: cs.primary),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

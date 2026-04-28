@@ -23,7 +23,7 @@ void main() {
 
       expect(color1, isNotNull);
       expect(color2, isNotNull);
-      expect(color1, isNotEqualTo(color2));
+      expect(color1, isNot(equals(color2)));
     });
 
     test('Provides list of valid accent colors', () {
@@ -166,7 +166,7 @@ void main() {
 
       expect(token1, isNotNull);
       expect(token2, isNotNull);
-      expect(token1, isNotEqualTo(token2));
+      expect(token1, isNot(equals(token2)));
     });
 
     test('Computes score changes correctly', () {
@@ -191,7 +191,7 @@ void main() {
     test('Provides user-friendly error messages', () {
       final message =
           _getUserFriendlyMessage('PocketBaseServerError: RECORD_NOT_FOUND');
-      expect(message, isNotEqualTo('PocketBaseServerError: RECORD_NOT_FOUND'));
+      expect(message, isNot(equals('PocketBaseServerError: RECORD_NOT_FOUND')));
       expect(message.length, greaterThan(0));
     });
 
@@ -288,7 +288,7 @@ bool _isStrongPassword(String password) {
   return password.length >= 8 &&
       RegExp(r'[A-Z]').hasMatch(password) &&
       RegExp(r'[0-9]').hasMatch(password) &&
-      RegExp(r'[!@#$%^&*()_+\-=\[\]{};:\'",.<>?/\\|`~]').hasMatch(password);
+      RegExp(r'[!@#\$%^&*()_+\-=\[\]{};:,.<>?/|`~]').hasMatch(password);
 }
 
 bool _isUsernameAvailable(String username, List<String> existingUsers) {

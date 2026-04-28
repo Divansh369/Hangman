@@ -78,7 +78,7 @@ void main() {
     });
 
     test('Speed run bonus for fast completion', () {
-      const speedRunBonus = _getSpeedRunBonus(45, 90); // 45 sec remaining
+      final speedRunBonus = _getSpeedRunBonus(45, 90); // 45 sec remaining
       expect(speedRunBonus, greaterThan(0));
       expect(speedRunBonus, equals(45)); // 1 point per second remaining
     });
@@ -271,7 +271,7 @@ void main() {
 
       final sanitized = _sanitizeChatMessage(message, secretWord);
       expect(sanitized, isNot(message));
-      expect(sanitized.contains('flutter'), isFalse));
+      expect(sanitized.contains('flutter'), isFalse);
     });
 
     test('Multiplayer room cleanup on disconnect', () async {
@@ -303,7 +303,7 @@ void main() {
 
     test('Points awarded based on speed', () {
       const timeUsed = 30; // out of 120
-      const speedBonus = _calculateSpeedBonus(timeUsed, 120);
+      final speedBonus = _calculateSpeedBonus(timeUsed, 120);
 
       expect(speedBonus, greaterThan(0));
       expect(speedBonus, equals(90)); // 120 - 30

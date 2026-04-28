@@ -14,42 +14,53 @@ class ProfileOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = AuthService().currentUser;
     final cs = Theme.of(context).colorScheme;
-    final width = context.isMobile ? 360.0 : (context.isTablet ? 420.0 : 480.0);
+    final width = context.isMobile ? 380.0 : (context.isTablet ? 440.0 : 500.0);
 
     return OverlayScaffold(
       width: width,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('Profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        GlowBadge(icon: Icons.person_outline, color: cs.primary, size: 48),
         const SizedBox(height: 12),
+        Text('Profile', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.textPrimary)),
+        const SizedBox(height: 16),
         if (user != null) ...[
           Builder(builder: (ctx) {
             final uname = user.getStringValue('username');
             final initial = uname.isNotEmpty ? uname[0].toUpperCase() : '?';
             return Column(children: [
-              CircleAvatar(radius: 28, backgroundColor: cs.primaryContainer, child: Text(initial)),
-              const SizedBox(height: 8),
-              Text(uname.isNotEmpty ? uname : 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: cs.primaryGradient),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: cs.primaryGlow, blurRadius: 16)],
+                ),
+                child: Center(
+                  child: Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 28)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(uname.isNotEmpty ? uname : 'Unknown', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: cs.textPrimary)),
             ]);
           }),
           const SizedBox(height: 8),
-          Text('${user.getIntValue('score')} Points', style: TextStyle(color: cs.textMuted)),
-          const SizedBox(height: 12),
+          StatPill(label: 'Score', value: '${user.getIntValue('score')}', icon: Icons.star),
+          const SizedBox(height: 16),
           FutureBuilder<Map<String, dynamic>?>(
             future: ProgressService().getProgress(),
             builder: (context, snapshot) {
               Widget content;
               if (snapshot.connectionState == ConnectionState.waiting) {
-                content = const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()));
+                content = SizedBox(height: 48, child: Center(child: CircularProgressIndicator(color: cs.primary)));
               } else if (!snapshot.hasData || snapshot.data == null) {
                 content = Column(children: [
-                  const Text('No progress yet.'),
-                  const SizedBox(height: 8),
-                  PrimaryButton(label: 'Initialize Progress', onPressed: () async {
+                  Text('No progress yet.', style: TextStyle(color: cs.textMuted)),
+                  const SizedBox(height: 12),
+                  PrimaryButton(label: 'Initialize Progress', icon: Icons.add_circle_outline, onPressed: () async {
                     final rec = await ProgressService().getOrCreateProgressRecord();
-                    if (!context.mounted) {
-                      return;
-                    }
+                    if (!context.mounted) return;
                     if (rec != null) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Progress created')));
                   }),
                 ]);
@@ -59,44 +70,69 @@ class ProfileOverlay extends StatelessWidget {
                 final collectibles = (data['collectibles'] as List<dynamic>?) ?? [];
                 final currency = (data['currency'] as int?) ?? 0;
 
-                content = Column(children: [
-                  Text('Levels completed: ${levels.length}'),
-                  Text('Collectibles: ${collectibles.length}'),
-                  Text('Currency: $currency'),
-                  const SizedBox(height: 8),
-                  PrimaryButton(label: 'Sync Progress', onPressed: () async {
-                    await ProgressService().getOrCreateProgressRecord();
-                    if (!context.mounted) {
-                      return;
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Progress synced')));
-                  }),
-                ]);
+                content = Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cs.glassBackground,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cs.glassBorder),
+                  ),
+                  child: Column(children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _miniStat(cs, Icons.grid_view_rounded, '${levels.length}', 'Levels'),
+                        _miniStat(cs, Icons.auto_awesome, '${collectibles.length}', 'Badges'),
+                        _miniStat(cs, Icons.monetization_on_outlined, '$currency', 'Currency'),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    SecondaryButton(label: 'Sync Progress', onPressed: () async {
+                      await ProgressService().getOrCreateProgressRecord();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Progress synced')));
+                    }),
+                  ]),
+                );
               }
 
               return AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
-                child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: content),
+                child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: content),
               );
             },
           ),
-          const SizedBox(height: 12),
-          PrimaryButton(label: 'Logout', onPressed: () {
+          const SizedBox(height: 14),
+          DangerButton(label: 'Logout', onPressed: () {
             AuthService().logout();
             game.showMainMenu();
-          })
+          }),
         ] else ...[
-          const Text('Not signed in'),
-          const SizedBox(height: 8),
-          PrimaryButton(label: 'Sign in', onPressed: () {
-            game.showScreen('Auth');
-          })
+          Icon(Icons.lock_person_rounded, size: 48, color: cs.textMuted.withValues(alpha: 0.4)),
+          const SizedBox(height: 12),
+          Text('Not signed in', style: TextStyle(color: cs.textMuted, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          PrimaryButton(label: 'Sign In', icon: Icons.login_rounded, onPressed: () => game.showScreen('Auth')),
         ],
-        const SizedBox(height: 8),
-        TextButton(onPressed: () {
-          game.showMainMenu();
-        }, child: const Text('Back'))
+        const SizedBox(height: 10),
+        TextButton(
+          onPressed: () => game.showMainMenu(),
+          child: Text('Back', style: TextStyle(color: cs.textMuted)),
+        ),
       ]),
+    );
+  }
+
+  Widget _miniStat(ColorScheme cs, IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, size: 22, color: cs.primary),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: cs.textPrimary)),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(fontSize: 11, color: cs.textMuted)),
+      ],
     );
   }
 }
